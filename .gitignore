@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Node (jika nanti pakai tooling)
+node_modules/
+
+# Claude Code lokal
+.claude/
+
+# Paket build TWA / Android
+*.apk
+*.aab
+*.keystore
+*.zip

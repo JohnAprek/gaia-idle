@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="80%">
+      <stop offset="0%" stop-color="#1a2150"/>
+      <stop offset="100%" stop-color="#0b1026"/>
+    </radialGradient>
+    <radialGradient id="planet" cx="38%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#7be08a"/>
+      <stop offset="55%" stop-color="#2e8b4f"/>
+      <stop offset="100%" stop-color="#13321f"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5ce08a" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#5ce08a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+
+  <!-- bintang -->
+  <g fill="#ffffff">
+    <circle cx="90"  cy="110" r="3" opacity="0.8"/>
+    <circle cx="420" cy="90"  r="2.5" opacity="0.7"/>
+    <circle cx="450" cy="200" r="2" opacity="0.6"/>
+    <circle cx="70"  cy="300" r="2.5" opacity="0.7"/>
+    <circle cx="410" cy="410" r="3" opacity="0.6"/>
+    <circle cx="130" cy="430" r="2" opacity="0.5"/>
+  </g>
+
+  <!-- glow planet -->
+  <circle cx="256" cy="262" r="180" fill="url(#glow)"/>
+  <!-- planet -->
+  <circle cx="256" cy="262" r="135" fill="url(#planet)"/>
+  <!-- highlight -->
+  <ellipse cx="212" cy="212" rx="48" ry="34" fill="#ffffff" opacity="0.12"/>
+
+  <!-- tunas / sprout -->
+  <g transform="translate(256,250)">
+    <path d="M0 50 C0 10 0 -20 0 -40" stroke="#eafff0" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <path d="M0 -10 C-40 -20 -55 -55 -50 -78 C-22 -72 -2 -45 0 -12 Z" fill="#bdf5c8"/>
+    <path d="M0 -22 C40 -32 58 -62 52 -88 C24 -80 2 -52 0 -24 Z" fill="#eafff0"/>
+  </g>
+</svg>

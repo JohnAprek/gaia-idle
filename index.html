@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0b1026" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon.svg" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="GAIA" />
+<title>GAIA — Idle Terraform</title>
+<style>
+  :root {
+    --bg: #0b1026;
+    --panel: #161e44;
+    --panel2: #1d2756;
+    --accent: #5ce08a;
+    --accent2: #38c172;
+    --text: #e8edff;
+    --muted: #8b95c9;
+    --gold: #ffd866;
+    --purple: #b98bff;
+    --danger: #ff6b81;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 50% -10%, #1a2150 0%, var(--bg) 60%);
+    color: var(--text); overflow: hidden; user-select: none;
+  }
+  #stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+  .star { position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%;
+    opacity: 0.6; animation: twinkle 3s infinite ease-in-out; }
+  @keyframes twinkle { 0%,100% { opacity: 0.2; } 50% { opacity: 0.9; } }
+
+  #app {
+    position: relative; z-index: 1;
+    display: grid; grid-template-rows: auto auto 1fr auto; height: 100%;
+    max-width: 480px; margin: 0 auto; padding: 10px; gap: 8px;
+  }
+
+  .stats {
+    background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border-radius: var(--radius); padding: 10px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center;
+  }
+  .biomass { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .biomass small { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .substats { display: flex; justify-content: center; gap: 14px; margin-top: 4px; flex-wrap: wrap; }
+  .substats span { font-size: 12px; color: var(--muted); }
+  .substats b { color: var(--gold); }
+  .stage-name { font-size: 13px; color: var(--accent); font-weight: 700; margin-top: 4px; }
+  .gaia-badge { color: var(--purple); }
+
+  .planet-area {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    position: relative; overflow: visible; min-height: 0;
+  }
+  .planet {
+    width: 180px; height: 180px; border-radius: 50%; cursor: pointer; position: relative;
+    background: radial-gradient(circle at 35% 30%, #6b7088, #2e3142 70%, #1a1c28);
+    box-shadow: 0 0 0 0 rgba(92,224,138,0);
+    transition: background 1.2s ease, box-shadow 0.4s ease, transform 0.08s; border: none;
+  }
+  .planet:active { transform: scale(0.95); }
+  .planet::after { content:''; position:absolute; inset:0; border-radius:50%;
+    box-shadow: inset -16px -16px 36px rgba(0,0,0,0.5), inset 10px 10px 26px rgba(255,255,255,0.06); }
+  .planet.bump { animation: bump 0.5s ease; }
+  @keyframes bump { 0%{transform:scale(1);} 40%{transform:scale(1.12);} 100%{transform:scale(1);} }
+  .planet-hint { color: var(--muted); font-size: 11px; margin-top: 10px; }
+
+  .float { position: absolute; pointer-events: none; font-weight: 800; color: var(--accent);
+    font-size: 18px; animation: floatUp 0.9s ease-out forwards; z-index: 5;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+  @keyframes floatUp { 0%{opacity:1; transform:translateY(0) scale(1);} 100%{opacity:0; transform:translateY(-60px) scale(1.3);} }
+  .particle { position: absolute; pointer-events: none; font-size: 22px; z-index: 6;
+    animation: burst 1s ease-out forwards; }
+  @keyframes burst { 0%{opacity:1; transform: translate(0,0) scale(0.4);} 100%{opacity:0;} }
+
+  .tabs { display: flex; gap: 6px; }
+  .tab { flex: 1; padding: 8px 4px; text-align: center; border-radius: 10px;
+    background: var(--panel); color: var(--muted); font-weight: 700; font-size: 12px;
+    cursor: pointer; border: 1px solid transparent; position: relative; }
+  .tab.active { background: var(--panel2); color: var(--accent); border-color: var(--accent2); }
+  .tab .dot { position:absolute; top:4px; right:6px; width:7px; height:7px; border-radius:50%;
+    background: var(--gold); display:none; }
+  .tab.has-news .dot { display:block; }
+
+  .buymode { display:flex; gap:6px; margin: 6px 0; }
+  .buymode .bm { flex:1; padding:5px; text-align:center; border-radius:8px; font-size:11px;
+    font-weight:700; background: var(--panel); color: var(--muted); cursor:pointer; }
+  .buymode .bm.active { background: var(--accent2); color:#06210f; }
+
+  .shop { background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border-radius: var(--radius); padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    overflow-y: auto; }
+  .shop::-webkit-scrollbar { width: 6px; }
+  .shop::-webkit-scrollbar-thumb { background: var(--panel2); border-radius: 3px; }
+
+  .item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.04);
+    border-radius: 10px; padding: 10px; margin-bottom: 8px; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.05); transition: background 0.15s, transform 0.08s; }
+  .item:not(.locked):active { transform: scale(0.985); }
+  .item.affordable { border-color: var(--accent2); }
+  .item.locked { opacity: 0.5; cursor: default; }
+  .item .emoji { font-size: 26px; width: 38px; text-align: center; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .name { font-weight: 700; font-size: 14px; }
+  .item .desc { font-size: 11px; color: var(--muted); }
+  .item .right { text-align: right; white-space: nowrap; }
+  .item .cost { font-weight: 800; font-size: 13px; color: var(--gold); }
+  .item .cost.cant { color: var(--danger); }
+  .item .owned { font-size: 11px; color: var(--muted); }
+
+  /* prestige tab */
+  .prestige-box { text-align:center; padding: 8px; }
+  .prestige-box .gaia-big { font-size: 30px; font-weight: 800; color: var(--purple); }
+  .prestige-box p { color: var(--muted); font-size: 12px; margin: 6px 0; }
+  .prestige-box .gain { font-size: 22px; font-weight: 800; color: var(--gold); margin: 10px 0; }
+  .prestige-btn { padding: 12px 20px; border: none; border-radius: 10px; font-weight: 800;
+    font-size: 14px; cursor: pointer; background: linear-gradient(135deg, var(--purple), #8b5cf6);
+    color: #fff; width: 100%; }
+  .prestige-btn:disabled { opacity: 0.4; cursor: default; background: var(--panel); color: var(--muted); }
+
+  /* achievements */
+  .ach-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ach { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 8px; text-align:center;
+    border: 1px solid rgba(255,255,255,0.05); }
+  .ach.done { border-color: var(--gold); background: rgba(255,216,102,0.08); }
+  .ach .ae { font-size: 22px; filter: grayscale(1) opacity(0.4); }
+  .ach.done .ae { filter: none; }
+  .ach .an { font-size: 11px; font-weight: 700; margin-top: 2px; }
+  .ach .ad { font-size: 10px; color: var(--muted); }
+
+  .footer { display: flex; gap: 8px; }
+  .btn { flex: 1; padding: 9px; border-radius: 10px; border: none; background: var(--panel);
+    color: var(--muted); font-weight: 700; font-size: 12px; cursor: pointer; }
+  .btn:active { transform: scale(0.97); }
+
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 50;
+    display: none; align-items: center; justify-content: center; padding: 24px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: linear-gradient(135deg, var(--panel), var(--panel2)); border-radius: var(--radius);
+    padding: 24px; text-align: center; max-width: 320px; border: 1px solid var(--accent2); }
+  .modal h2 { color: var(--accent); margin-bottom: 8px; }
+  .modal p { color: var(--text); margin-bottom: 6px; }
+  .modal .big { font-size: 26px; font-weight: 800; color: var(--gold); margin: 12px 0; }
+  .modal button { margin-top: 12px; padding: 10px 24px; border: none; border-radius: 10px;
+    background: var(--accent2); color: #06210f; font-weight: 800; cursor: pointer; font-size: 14px; }
+
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); color: var(--text); padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; z-index: 60; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    border: 1px solid var(--accent2); text-align:center; }
+  .toast.show { opacity: 1; }
+
+  /* monetisasi / boost */
+  .boost-card { background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .boost-card .bt { font-weight:800; font-size:14px; display:flex; align-items:center; gap:6px; }
+  .boost-card .bd { font-size:11px; color:var(--muted); margin:4px 0 10px; }
+  .boost-card button { width:100%; padding:10px; border:none; border-radius:9px; font-weight:800;
+    font-size:13px; cursor:pointer; }
+  .ad-btn { background: linear-gradient(135deg,#ffb347,#ff8c42); color:#3a1d00; }
+  .ad-btn:disabled { opacity:0.45; cursor:default; filter:grayscale(0.4); }
+  .iap-btn { background: linear-gradient(135deg,var(--purple),#8b5cf6); color:#fff; }
+  .iap-btn:disabled { opacity:0.5; cursor:default; }
+  .boost-active-banner { background: linear-gradient(90deg, rgba(255,179,71,0.25), rgba(255,140,66,0.15));
+    border:1px solid var(--gold); border-radius:9px; padding:8px; text-align:center; font-size:12px;
+    color:var(--gold); font-weight:700; margin-bottom:10px; }
+
+  /* overlay iklan simulasi */
+  .ad-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:80; display:none;
+    flex-direction:column; align-items:center; justify-content:center; color:#fff; text-align:center; padding:24px; }
+  .ad-overlay.show { display:flex; }
+  .ad-overlay .label { font-size:11px; color:#888; position:absolute; top:16px; left:16px; }
+  .ad-overlay .skip { position:absolute; top:14px; right:16px; font-size:12px; color:#ccc;
+    border:1px solid #555; border-radius:6px; padding:4px 10px; cursor:pointer; }
+  .ad-overlay .fake { font-size:60px; margin-bottom:14px; animation: spin 2s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ad-overlay h3 { color:var(--gold); margin-bottom:6px; }
+  .ad-bar { width:200px; height:6px; background:#333; border-radius:3px; margin-top:16px; overflow:hidden; }
+  .ad-bar > i { display:block; height:100%; width:0; background:var(--accent); }
+
+  /* golden sprout */
+  .golden { position:fixed; z-index:70; font-size:40px; cursor:pointer; filter: drop-shadow(0 0 12px var(--gold));
+    animation: goldenPulse 1s ease-in-out infinite; }
+  @keyframes goldenPulse { 0%,100%{ transform:scale(1) rotate(-8deg);} 50%{ transform:scale(1.18) rotate(8deg);} }
+</style>
+</head>
+<body>
+<div id="stars"></div>
+
+<div id="app">
+  <div class="stats">
+    <div class="biomass"><span id="biomass">0</span> <small>Biomassa 🌿</small></div>
+    <div class="substats">
+      <span><b id="perSec">0</b> /dtk</span>
+      <span class="gaia-badge">🌟 <b id="gaiaTop" style="color:var(--purple)">0</b> Gaia</span>
+      <span>x<b id="multTop">1.0</b> bonus</span>
+    </div>
+    <div class="stage-name" id="stageName">Planet Mati</div>
+    <div id="boostInfo" style="display:none;color:var(--gold);font-size:12px;font-weight:700;margin-top:3px"></div>
+  </div>
+
+  <div class="planet-area">
+    <button class="planet" id="planet"></button>
+    <div class="planet-hint">Ketuk planet untuk menumbuhkan kehidupan</div>
+  </div>
+
+  <div>
+    <div class="tabs">
+      <div class="tab active" data-tab="gen">🌱</div>
+      <div class="tab" data-tab="upg">⚡</div>
+      <div class="tab" data-tab="prestige">🌟</div>
+      <div class="tab" data-tab="ach">🏆<span class="dot"></span></div>
+      <div class="tab" data-tab="boost">💎<span class="dot" id="boostDot"></span></div>
+    </div>
+    <div class="shop" id="shop"></div>
+  </div>
+
+  <div class="footer">
+    <button class="btn" id="soundBtn">🔊 Suara</button>
+    <button class="btn" id="saveBtn">💾 Simpan</button>
+    <button class="btn" id="resetBtn">🔄 Reset</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="offlineModal">
+  <div class="modal">
+    <h2>Selamat datang kembali! 🌍</h2>
+    <p>Planetmu terus tumbuh selama kamu pergi</p>
+    <div class="big" id="offlineGain">+0 🌿</div>
+    <p id="offlineTime" style="color:var(--muted);font-size:12px;"></p>
+    <button id="offlineOk">Kumpulkan</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- OVERLAY IKLAN (simulasi) -->
+<div class="ad-overlay" id="adOverlay">
+  <div class="label">Iklan (simulasi)</div>
+  <div class="skip" id="adSkip" style="display:none">Lewati ▸</div>
+  <div class="fake">🌍</div>
+  <h3 id="adTitle">Iklan sedang diputar…</h3>
+  <p style="color:#aaa;font-size:13px">Hadiahmu menunggu setelah iklan selesai</p>
+  <div class="ad-bar"><i id="adBar"></i></div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   GAIA — Idle Terraform  (prototype v2)
+   Fitur: klik, generator, upgrade, prestige (Gaia), achievement,
+   offline earnings, sound (WebAudio), partikel, buy x1/x10/Max.
+   ============================================================ */
+
+// ---------- DATA ----------
+const GENERATORS = [
+  { id:'spora',  name:'Spora',   emoji:'🦠', baseCost:15,         rate:0.1,   desc:'Bibit kehidupan pertama' },
+  { id:'lumut',  name:'Lumut',   emoji:'🌿', baseCost:120,        rate:1,     desc:'Menyelimuti bebatuan' },
+  { id:'semak',  name:'Semak',   emoji:'🌳', baseCost:1300,       rate:8,     desc:'Akar mencengkeram tanah' },
+  { id:'pohon',  name:'Pohon',   emoji:'🌲', baseCost:14000,      rate:47,    desc:'Hutan mulai terbentuk' },
+  { id:'hutan',  name:'Hutan',   emoji:'🏞️', baseCost:160000,     rate:260,   desc:'Ekosistem rimbun' },
+  { id:'danau',  name:'Danau',   emoji:'💧', baseCost:1900000,    rate:1400,  desc:'Air kehidupan mengalir' },
+  { id:'satwa',  name:'Satwa',   emoji:'🦌', baseCost:25000000,   rate:7800,  desc:'Fauna berkembang' },
+  { id:'koloni', name:'Koloni',  emoji:'🏘️', baseCost:400000000,  rate:44000, desc:'Peradaban lahir' },
+  { id:'kota',   name:'Metropolis', emoji:'🌆', baseCost:6.5e9,   rate:260000,desc:'Kota raksasa membentang' },
+  { id:'orbit',  name:'Stasiun Orbit', emoji:'🛰️', baseCost:1e11, rate:1.6e6, desc:'Kehidupan menjangkau langit' },
+];
+
+const UPGRADES = [
+  { id:'click1', name:'Tangan Hijau',    emoji:'✋', cost:120,    type:'click', mult:2, desc:'Ketukan x2' },
+  { id:'click2', name:'Sentuhan Subur',  emoji:'🤲', cost:6000,   type:'click', mult:3, desc:'Ketukan x3' },
+  { id:'click3', name:'Berkah Gaia',     emoji:'🙌', cost:900000, type:'click', mult:4, desc:'Ketukan x4' },
+  { id:'all1',   name:'Fotosintesis',    emoji:'☀️', cost:2500,   type:'all',   mult:2, desc:'Semua produksi x2' },
+  { id:'all2',   name:'Pupuk Kosmik',    emoji:'✨', cost:90000,  type:'all',   mult:2, desc:'Semua produksi x2' },
+  { id:'all3',   name:'Hujan Meteor Air',emoji:'☄️', cost:3.5e6,  type:'all',   mult:3, desc:'Semua produksi x3' },
+  { id:'all4',   name:'Inti Geotermal',  emoji:'🌋', cost:1.8e8,  type:'all',   mult:3, desc:'Semua produksi x3' },
+  { id:'all5',   name:'Medan Magnet',    emoji:'🧲', cost:1.2e10, type:'all',   mult:3, desc:'Semua produksi x3' },
+];
+
+const STAGES = [
+  { min:0,         name:'Planet Mati',     core:'#6b7088', mid:'#2e3142' },
+  { min:50,        name:'Bebatuan Lembap', core:'#7a8a6b', mid:'#3a4232' },
+  { min:1500,      name:'Hijau Pertama',   core:'#8fcf6b', mid:'#3a6b32' },
+  { min:40000,     name:'Padang Subur',    core:'#7be08a', mid:'#2e8b4f' },
+  { min:800000,    name:'Dunia Berair',    core:'#6bd6e0', mid:'#2e6b8b' },
+  { min:25000000,  name:'Planet Hidup',    core:'#9be07b', mid:'#2e8b5f' },
+  { min:800000000, name:'Peradaban Gaia',  core:'#e0d36b', mid:'#8b7a2e' },
+  { min:5e10,      name:'Dunia Sempurna',  core:'#b98bff', mid:'#5b3a8b' },
+];
+
+const ACHIEVEMENTS = [
+  { id:'first',    emoji:'👆', name:'Sentuhan Pertama', desc:'Ketuk planet',        check:s=>s.clicks>=1 },
+  { id:'spora1',   emoji:'🦠', name:'Awal Mula',        desc:'Beli Spora pertama',  check:s=>s.gens.spora>=1 },
+  { id:'k1',       emoji:'🌱', name:'Tunas',            desc:'1K biomassa',         check:s=>s.lifetime>=1000 },
+  { id:'m1',       emoji:'🌳', name:'Rimbun',           desc:'1J biomassa',         check:s=>s.lifetime>=1e6 },
+  { id:'water',    emoji:'💧', name:'Dunia Berair',     desc:'Capai stage air',     check:s=>s.runEarned>=800000 },
+  { id:'g100',     emoji:'🏭', name:'Industrialis',     desc:'100 generator',       check:s=>totalGens()>=100 },
+  { id:'prest1',   emoji:'🌟', name:'Kelahiran Kembali',desc:'Prestige pertama',    check:s=>s.prestigeCount>=1 },
+  { id:'gaia25',   emoji:'💫', name:'Penjaga Gaia',     desc:'25 Spora Gaia',       check:s=>s.gaiaSpores>=25 },
+  { id:'allupg',   emoji:'⚡', name:'Kolektor',         desc:'Semua upgrade',       check:s=>UPGRADES.every(u=>s.upgrades[u.id]) },
+  { id:'offline',  emoji:'💤', name:'Sabar Menunggu',   desc:'Klaim hasil offline', check:s=>s.claimedOffline },
+  { id:'clicks100',emoji:'💪', name:'Rajin',            desc:'100 ketukan',         check:s=>s.clicks>=100 },
+  { id:'boost1',   emoji:'🔥', name:'Akselerasi',       desc:'Aktifkan boost',      check:s=>s.boostUntil>0 },
+  { id:'golden1',  emoji:'🌟', name:'Pemburu Emas',     desc:'Tangkap tunas emas',  check:s=>s.goldenCaught>=1 },
+  { id:'allgen',   emoji:'🌌', name:'Penguasa Semesta', desc:'Punya semua generator',check:s=>GENERATORS.every(g=>s.gens[g.id]>0) },
+];
+
+const COST_GROWTH = 1.15;
+const SAVE_KEY = 'gaia_save_v2';
+const TICK_MS = 100;
+const GAIA_DIV = 100000;        // runEarned per spora (akar, model frontier)
+const GAIA_BONUS = 0.05;        // +5% per spora
+const ACH_BONUS = 0.01;         // +1% per achievement
+
+// ---------- STATE ----------
+let state = {
+  biomass: 0, runEarned: 0, lifetime: 0,
+  gens: {}, upgrades: {}, achs: {},
+  gaiaSpores: 0, prestigeCount: 0,
+  clicks: 0, claimedOffline: false,
+  soundOn: true, lastSave: Date.now(),
+  boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
+};
+GENERATORS.forEach(g => state.gens[g.id] = 0);
+
+let currentTab = 'gen';
+let buyMode = 1; // 1, 10, 'max'
+
+// ---------- HELPERS ----------
+function fmt(n) {
+  if (n < 1000) return (Math.abs(n % 1) < 1e-9 ? Math.round(n) : n.toFixed(1)).toString();
+  const units = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
+  let tier = Math.floor(Math.log10(n) / 3);
+  if (tier >= units.length) tier = units.length - 1;
+  const s = n / Math.pow(10, tier*3);
+  return s.toFixed(s<10?2:s<100?1:0) + units[tier];
+}
+function totalGens(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]); return t; }
+function genCost(g, owned){ return Math.floor(g.baseCost * Math.pow(COST_GROWTH, owned)); }
+
+// total harga membeli n unit mulai dari kepemilikan 'owned'
+function bulkCost(g, n){
+  const r = COST_GROWTH, b = g.baseCost, o = state.gens[g.id];
+  return Math.floor(b * Math.pow(r,o) * (Math.pow(r,n)-1) / (r-1));
+}
+// berapa unit yang mampu dibeli dengan biomassa sekarang
+function maxAffordable(g){
+  const r = COST_GROWTH, b = g.baseCost, o = state.gens[g.id], money = state.biomass;
+  const base = b * Math.pow(r,o);
+  if (money < base) return 0;
+  return Math.floor(Math.log( (money*(r-1))/base + 1 ) / Math.log(r));
+}
+function buyQty(g){
+  if (buyMode === 'max') return Math.max(1, maxAffordable(g));
+  return buyMode;
+}
+
+function prestigeMult(){ return 1 + state.gaiaSpores * GAIA_BONUS; }
+function achMult(){ return 1 + Object.keys(state.achs).length * ACH_BONUS; }
+function upgAllMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='all'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
+function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
+function boostActive(){ return Date.now() < state.boostUntil; }
+function boostMult(){ return (boostActive() ? 2 : 1) * (state.adsRemoved ? 2 : 1); }
+function globalMult(){ return upgAllMult() * prestigeMult() * achMult() * boostMult(); }
+function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate); return t*globalMult(); }
+function clickPower(){ return 1 * upgClickMult() * globalMult(); }
+
+// Model "frontier": hanya dapat spora bila memecahkan rekor terjauh.
+function potentialGaia(){ return Math.max(0, Math.floor(Math.sqrt(state.runEarned / GAIA_DIV)) - state.gaiaSpores); }
+function nextSporeReq(){ return Math.pow(state.gaiaSpores + 1, 2) * GAIA_DIV; }
+
+function currentStage(){ let s=STAGES[0]; for(const st of STAGES) if(state.runEarned>=st.min) s=st; return s; }
+
+// ---------- ACTIONS ----------
+function addBiomass(a){ state.biomass+=a; state.runEarned+=a; state.lifetime+=a; }
+
+function buyGen(g){
+  const qty = buyQty(g);
+  const cost = bulkCost(g, qty);
+  if (qty<1 || state.biomass < cost) return;
+  state.biomass -= cost;
+  state.gens[g.id] += qty;
+  sfx('buy');
+  renderShop(); updateStats();
+}
+function buyUpgrade(u){
+  if (state.upgrades[u.id] || state.biomass < u.cost) return;
+  state.biomass -= u.cost; state.upgrades[u.id] = true;
+  sfx('upg'); toast(`${u.emoji} ${u.name} aktif!`);
+  renderShop(); updateStats();
+}
+function doPrestige(){
+  const gain = potentialGaia();
+  if (gain < 1) return;
+  if (!confirm(`Lahirkan planet baru?\n\nKamu akan dapat ${gain} 🌟 Spora Gaia (bonus permanen +${(gain*GAIA_BONUS*100).toFixed(0)}%).\n\nBiomassa, generator & upgrade di-reset. Spora Gaia & pencapaian tetap.`)) return;
+  state.gaiaSpores += gain;
+  state.prestigeCount++;
+  // reset run
+  state.biomass = 0; state.runEarned = 0;
+  GENERATORS.forEach(g=>state.gens[g.id]=0);
+  state.upgrades = {};
+  sfx('prestige'); burstParticles('🌟', 16);
+  toast(`🌟 +${gain} Spora Gaia! Planet baru lahir.`);
+  renderShop(); updateStats(); save(true);
+}
+
+// ---------- RENDER ----------
+const $ = id => document.getElementById(id);
+let lastStageMin = -1;
+
+function updateStats(){
+  $('biomass').textContent = fmt(state.biomass);
+  $('perSec').textContent = fmt(perSec());
+  $('gaiaTop').textContent = fmt(state.gaiaSpores);
+  $('multTop').textContent = globalMult().toFixed(globalMult()<10?2:1);
+  const stage = currentStage();
+  $('stageName').textContent = stage.name;
+  const p = $('planet');
+  p.style.background = `radial-gradient(circle at 35% 30%, ${stage.core}, ${stage.mid} 70%, #1a1c28)`;
+  const glow = Math.min(45, 8 + Math.log10(state.runEarned+1)*4.5);
+  p.style.boxShadow = `0 0 ${glow}px ${glow/2}px ${stage.core}66`;
+  // deteksi naik stage
+  if (lastStageMin !== -1 && stage.min > lastStageMin) {
+    onStageUp(stage);
+  }
+  lastStageMin = stage.min;
+  updateBoostUI();
+  // tab achievement news
+  checkAchievements();
+}
+
+function updateBoostUI(){
+  const info=$('boostInfo'); const parts=[];
+  if(state.adsRemoved) parts.push('💎 x2 permanen');
+  if(boostActive()) parts.push('🔥 x2 boost ('+boostRemainStr()+')');
+  if(parts.length){ info.style.display='block'; info.textContent=parts.join(' · '); }
+  else info.style.display='none';
+  $('boostDot').style.display = (Date.now()>=state.adCooldownUntil) ? 'block':'none';
+  const cd=$('boostCountdown'); if(cd) cd.textContent=boostRemainStr();
+}
+
+function renderShop(){
+  const shop = $('shop');
+  shop.innerHTML = '';
+
+  if (currentTab === 'gen') {
+    shop.appendChild(buyModeBar());
+    GENERATORS.forEach((g,i)=>{
+      const prevOwned = i===0 || state.gens[GENERATORS[i-1].id]>0;
+      if (!(state.gens[g.id]>0 || prevOwned)) return;
+      const qty = buyQty(g);
+      const cost = bulkCost(g, qty);
+      const afford = state.biomass>=cost && qty>=1;
+      const el = document.createElement('div');
+      el.className = 'item' + (afford?' affordable':'');
+      el.innerHTML = `
+        <div class="emoji">${g.emoji}</div>
+        <div class="info">
+          <div class="name">${g.name} ${buyMode!==1?`<span style="color:var(--accent)">x${fmt(qty)}</span>`:''}</div>
+          <div class="desc">${g.desc} · +${fmt(g.rate*globalMult())}/dtk ea</div>
+        </div>
+        <div class="right">
+          <div class="cost ${afford?'':'cant'}">${fmt(cost)} 🌿</div>
+          <div class="owned">punya: ${state.gens[g.id]}</div>
+        </div>`;
+      el.onclick = ()=>buyGen(g);
+      shop.appendChild(el);
+    });
+  } else if (currentTab === 'upg') {
+    let any=false;
+    UPGRADES.forEach(u=>{
+      const bought = state.upgrades[u.id];
+      const afford = state.biomass>=u.cost;
+      any=true;
+      const el = document.createElement('div');
+      el.className='item'+(bought?' locked':afford?' affordable':'');
+      el.innerHTML=`
+        <div class="emoji">${u.emoji}</div>
+        <div class="info"><div class="name">${u.name}</div><div class="desc">${u.desc}</div></div>
+        <div class="right"><div class="cost ${bought?'':afford?'':'cant'}">${bought?'✅ Dibeli':fmt(u.cost)+' 🌿'}</div></div>`;
+      if(!bought) el.onclick=()=>buyUpgrade(u);
+      shop.appendChild(el);
+    });
+    if(!any) shop.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">Belum ada upgrade.</p>';
+  } else if (currentTab === 'prestige') {
+    const gain = potentialGaia();
+    const box = document.createElement('div');
+    box.className='prestige-box';
+    box.innerHTML = `
+      <div class="gaia-big">🌟 ${fmt(state.gaiaSpores)}</div>
+      <p>Spora Gaia · bonus permanen <b style="color:var(--purple)">+${(state.gaiaSpores*GAIA_BONUS*100).toFixed(0)}%</b></p>
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:12px 0">
+      <p>Lahirkan ulang planet untuk menukar progress jadi Spora Gaia permanen.</p>
+      <div class="gain">+${gain} 🌟</div>
+      <p style="font-size:11px">Spora berikutnya saat run mencapai <b style="color:var(--gold)">${fmt(nextSporeReq())}</b> 🌿.<br>Run ini: ${fmt(state.runEarned)} · rekor menentukan spora (lampaui untuk dapat lebih).</p>
+      <button class="prestige-btn" id="prestigeBtn" ${gain<1?'disabled':''}>
+        ${gain<1?'Belum cukup untuk prestige':`Lahirkan Planet Baru (+${gain})`}
+      </button>
+      <p style="margin-top:10px">Total prestige: ${state.prestigeCount}x</p>`;
+    shop.appendChild(box);
+    const pb = $('prestigeBtn'); if(pb) pb.onclick = doPrestige;
+  } else if (currentTab === 'ach') {
+    const grid = document.createElement('div');
+    grid.className='ach-grid';
+    ACHIEVEMENTS.forEach(a=>{
+      const done = state.achs[a.id];
+      const el=document.createElement('div');
+      el.className='ach'+(done?' done':'');
+      el.innerHTML=`<div class="ae">${a.emoji}</div><div class="an">${a.name}</div><div class="ad">${done?'✅ '+a.desc:a.desc}</div>`;
+      grid.appendChild(el);
+    });
+    shop.appendChild(grid);
+    const cnt = Object.keys(state.achs).length;
+    const head=document.createElement('p');
+    head.style.cssText='text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px';
+    head.innerHTML=`Pencapaian: <b style="color:var(--gold)">${cnt}/${ACHIEVEMENTS.length}</b> · bonus +${cnt}%`;
+    shop.insertBefore(head, grid);
+    document.querySelector('[data-tab=ach]').classList.remove('has-news');
+  } else if (currentTab === 'boost') {
+    renderBoost(shop);
+  }
+}
+
+function renderBoost(shop){
+  // banner jika boost aktif
+  if (boostActive()){
+    const b=document.createElement('div'); b.className='boost-active-banner';
+    b.innerHTML=`🔥 Produksi x2 aktif — sisa <b id="boostCountdown">${boostRemainStr()}</b>`;
+    shop.appendChild(b);
+  }
+  const onCd = Date.now() < state.adCooldownUntil;
+  const cdLeft = Math.ceil((state.adCooldownUntil - Date.now())/1000);
+
+  // 1) Rewarded: x2 produksi 4 jam
+  const c1=document.createElement('div'); c1.className='boost-card';
+  c1.innerHTML=`
+    <div class="bt">🔥 Lonjakan Pertumbuhan</div>
+    <div class="bd">Tonton iklan singkat → produksi <b>x2 selama 4 jam</b>.</div>
+    <button class="ad-btn" ${onCd?'disabled':''}>${onCd?`Tunggu ${cdLeft}s`:'▶ Tonton Iklan'}</button>`;
+  c1.querySelector('button').onclick=()=>watchAd('Lonjakan Pertumbuhan', ()=>{
+    state.boostUntil=Math.max(state.boostUntil,Date.now())+4*3600*1000;
+    state.adCooldownUntil=Date.now()+90*1000;
+    burstParticles('🔥',12); toast('🔥 Boost x2 selama 4 jam aktif!');
+    updateStats(); renderShop();
+  });
+  shop.appendChild(c1);
+
+  // 2) Rewarded: panen instan (= 2 jam produksi)
+  const harvest = perSec()*2*3600;
+  const c2=document.createElement('div'); c2.className='boost-card';
+  c2.innerHTML=`
+    <div class="bt">🎁 Panen Instan</div>
+    <div class="bd">Tonton iklan → langsung dapat <b>${fmt(harvest)} 🌿</b> (≈2 jam produksi).</div>
+    <button class="ad-btn" ${(onCd||harvest<=0)?'disabled':''}>${harvest<=0?'Butuh produksi dulu':onCd?`Tunggu ${cdLeft}s`:'▶ Tonton Iklan'}</button>`;
+  c2.querySelector('button').onclick=()=>watchAd('Panen Instan', ()=>{
+    const amt=perSec()*2*3600; addBiomass(amt);
+    state.adCooldownUntil=Date.now()+90*1000;
+    burstParticles('🌿',12); toast(`🎁 +${fmt(amt)} biomassa!`);
+    updateStats(); renderShop();
+  });
+  shop.appendChild(c2);
+
+  // 3) IAP: hapus iklan + x2 permanen
+  const c3=document.createElement('div'); c3.className='boost-card';
+  c3.innerHTML=`
+    <div class="bt">💎 Paket Penjaga Gaia</div>
+    <div class="bd">${state.adsRemoved?'✅ Sudah dimiliki — produksi <b>x2 permanen</b> aktif & iklan dihapus.':'Hapus semua iklan <b>+ produksi x2 permanen</b>. <span style="color:var(--gold)">Rp 25.000</span>'}</div>
+    <button class="iap-btn" ${state.adsRemoved?'disabled':''}>${state.adsRemoved?'Dimiliki':'Beli (simulasi)'}</button>`;
+  c3.querySelector('button').onclick=()=>{
+    if(state.adsRemoved) return;
+    // PLACEHOLDER pembayaran — di produksi sambungkan ke Google Play Billing / Stripe
+    if(confirm('SIMULASI pembelian.\n\nDi versi rilis ini terhubung ke Google Play Billing.\n\nLanjut "beli" untuk demo?')){
+      state.adsRemoved=true; sfx('prestige'); burstParticles('💎',16);
+      toast('💎 Terima kasih! x2 permanen aktif.'); updateStats(); renderShop(); save(true);
+    }
+  };
+  shop.appendChild(c3);
+
+  const note=document.createElement('p');
+  note.style.cssText='text-align:center;color:var(--muted);font-size:10px;margin-top:6px';
+  note.textContent='Iklan & pembelian di prototype ini masih simulasi (placeholder).';
+  shop.appendChild(note);
+}
+function boostRemainStr(){
+  const s=Math.max(0,Math.ceil((state.boostUntil-Date.now())/1000));
+  const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+  return h>0?`${h}j ${m}m`:m>0?`${m}m ${sec}s`:`${sec}s`;
+}
+
+function buyModeBar(){
+  const bar=document.createElement('div');
+  bar.className='buymode';
+  [['1','x1'],['10','x10'],['max','MAX']].forEach(([v,label])=>{
+    const b=document.createElement('div');
+    b.className='bm'+((String(buyMode)===v)?' active':'');
+    b.textContent=label;
+    b.onclick=()=>{ buyMode = v==='max'?'max':parseInt(v); renderShop(); };
+    bar.appendChild(b);
+  });
+  return bar;
+}
+
+// ---------- ACHIEVEMENTS ----------
+function checkAchievements(){
+  let unlocked=false;
+  ACHIEVEMENTS.forEach(a=>{
+    if(!state.achs[a.id] && a.check(state)){
+      state.achs[a.id]=true; unlocked=true;
+      toast(`🏆 Pencapaian: ${a.name}`);
+      sfx('ach');
+      if(currentTab!=='ach') document.querySelector('[data-tab=ach]').classList.add('has-news');
+    }
+  });
+  if(unlocked && currentTab==='ach') renderShop();
+}
+
+// ---------- STAGE UP ----------
+function onStageUp(stage){
+  burstParticles('✨', 12);
+  sfx('stage');
+  toast(`🌍 Planet berkembang: ${stage.name}!`);
+  const p=$('planet'); p.classList.add('bump'); setTimeout(()=>p.classList.remove('bump'),500);
+}
+
+// ---------- CLICK ----------
+$('planet').addEventListener('pointerdown',(e)=>{
+  initAudio();
+  const gain = clickPower();
+  addBiomass(gain); state.clicks++;
+  sfx('click');
+  updateStats();
+  if(currentTab==='gen') renderShop();
+  spawnFloat(e, gain);
+});
+function spawnFloat(e, gain){
+  const f=document.createElement('div'); f.className='float'; f.textContent='+'+fmt(gain);
+  const area=document.querySelector('.planet-area'); const rect=area.getBoundingClientRect();
+  const x=(e.clientX||rect.left+rect.width/2)-rect.left;
+  const y=(e.clientY||rect.top+rect.height/2)-rect.top;
+  f.style.left=(x-10)+'px'; f.style.top=(y-10)+'px';
+  area.appendChild(f); setTimeout(()=>f.remove(),900);
+}
+function burstParticles(emoji, count){
+  const area=document.querySelector('.planet-area'); const rect=area.getBoundingClientRect();
+  const cx=rect.width/2, cy=rect.height/2;
+  for(let i=0;i<count;i++){
+    const pt=document.createElement('div'); pt.className='particle'; pt.textContent=emoji;
+    const ang=(Math.PI*2/count)*i; const dist=70+i%3*15;
+    pt.style.left=cx+'px'; pt.style.top=cy+'px';
+    pt.style.setProperty('--dx', Math.cos(ang)*dist+'px');
+    area.appendChild(pt);
+    const dx=Math.cos(ang)*dist, dy=Math.sin(ang)*dist;
+    pt.animate([{transform:'translate(0,0) scale(0.4)',opacity:1},
+                {transform:`translate(${dx}px,${dy}px) scale(1.2)`,opacity:0}],
+               {duration:1000,easing:'ease-out'});
+    setTimeout(()=>pt.remove(),1000);
+  }
+}
+
+// ---------- TABS ----------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active'); currentTab=t.dataset.tab; renderShop();
+  };
+});
+
+// ---------- SOUND (WebAudio, tanpa file) ----------
+let actx=null;
+function initAudio(){ if(!actx && window.AudioContext){ actx=new AudioContext(); } if(actx&&actx.state==='suspended') actx.resume(); }
+function tone(freq, dur, type='sine', vol=0.08){
+  if(!state.soundOn || !actx) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(vol, actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime+dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(); o.stop(actx.currentTime+dur);
+}
+function sfx(kind){
+  if(!state.soundOn) return;
+  initAudio();
+  if(kind==='click') tone(420+Math.random()*40, 0.08, 'triangle', 0.05);
+  else if(kind==='buy') tone(560,0.1,'square',0.06);
+  else if(kind==='upg'){ tone(660,0.1); setTimeout(()=>tone(880,0.12),80); }
+  else if(kind==='ach'){ tone(700,0.1); setTimeout(()=>tone(1050,0.15),100); }
+  else if(kind==='stage'){ [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,0.18,'sine',0.07),i*90)); }
+  else if(kind==='prestige'){ [392,523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'sine',0.08),i*100)); }
+}
+
+// ---------- REWARDED AD (simulasi) ----------
+// CATATAN: di versi rilis, ganti isi watchAd dengan SDK iklan asli
+// (AdMob via TWA, atau Google Ad Manager). Panggil reward() di callback "onRewarded".
+let adTimer=null;
+function watchAd(label, reward){
+  initAudio();
+  const ov=$('adOverlay'), bar=$('adBar'), skip=$('adSkip');
+  $('adTitle').textContent='Iklan: '+label;
+  bar.style.width='0%'; skip.style.display='none'; ov.classList.add('show');
+  const dur=4000, start=Date.now(); let done=false;
+  if(adTimer) clearInterval(adTimer);
+  adTimer=setInterval(()=>{
+    const p=Math.min(1,(Date.now()-start)/dur);
+    bar.style.width=(p*100)+'%';
+    if(p>=0.25) skip.style.display='block';
+    if(p>=1 && !done){ done=true; clearInterval(adTimer); ov.classList.remove('show'); sfx('ach'); reward(); }
+  },50);
+  skip.onclick=()=>{ if(done) return; clearInterval(adTimer); ov.classList.remove('show'); toast('Iklan dilewati — hadiah batal'); };
+}
+
+// ---------- GOLDEN SPROUT (event acak) ----------
+let goldenEl=null;
+function scheduleGolden(){
+  const delay=(60+Math.random()*120)*1000; // 60–180 detik
+  setTimeout(spawnGolden, delay);
+}
+function spawnGolden(){
+  if(goldenEl) return;
+  goldenEl=document.createElement('div'); goldenEl.className='golden'; goldenEl.textContent='🌟';
+  goldenEl.style.left=(8+Math.random()*72)+'vw';
+  goldenEl.style.top=(18+Math.random()*55)+'vh';
+  goldenEl.onclick=()=>{
+    state.goldenCaught++;
+    const roll=Math.random();
+    if(roll<0.5){ const amt=Math.max(50, perSec()*60*5); addBiomass(amt); toast(`🌟 Tunas Emas! +${fmt(amt)} 🌿`); }
+    else if(roll<0.85){ state.boostUntil=Math.max(state.boostUntil,Date.now())+5*60*1000; toast('🌟 Tunas Emas! Boost x2 selama 5 menit!'); }
+    else { state.gaiaSpores+=1; toast('🌟 Langka! +1 Spora Gaia!'); }
+    burstParticles('✨',14); sfx('stage');
+    goldenEl.remove(); goldenEl=null; updateStats();
+    if(currentTab==='gen'||currentTab==='boost') renderShop();
+    scheduleGolden();
+  };
+  document.body.appendChild(goldenEl);
+  setTimeout(()=>{ if(goldenEl){ goldenEl.remove(); goldenEl=null; scheduleGolden(); } }, 9000);
+}
+
+// ---------- LOOP ----------
+let lastTick=Date.now(), lastBoostRender=0;
+setInterval(()=>{
+  const now=Date.now(); const dt=(now-lastTick)/1000; lastTick=now;
+  const gain=perSec()*dt;
+  if(gain>0) addBiomass(gain);
+  updateStats();
+  if(currentTab==='gen') renderShop();
+  else if(currentTab==='boost' && now-lastBoostRender>1000){ lastBoostRender=now; renderShop(); }
+}, TICK_MS);
+
+// ---------- SAVE / LOAD ----------
+function save(silent){
+  state.lastSave=Date.now();
+  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  if(!silent) toast('💾 Tersimpan');
+}
+function load(){
+  const raw=localStorage.getItem(SAVE_KEY); if(!raw) return false;
+  try{
+    const s=JSON.parse(raw); state=Object.assign(state, s);
+    GENERATORS.forEach(g=>{ if(state.gens[g.id]==null) state.gens[g.id]=0; });
+    if(!state.achs) state.achs={}; if(!state.upgrades) state.upgrades={};
+    return true;
+  }catch(e){ return false; }
+}
+function applyOffline(){
+  const now=Date.now();
+  const elapsed=Math.min((now-state.lastSave)/1000, 60*60*8);
+  if(elapsed<5) return;
+  const gain=perSec()*elapsed; if(gain<=0) return;
+  addBiomass(gain); state.claimedOffline=true;
+  $('offlineGain').textContent='+'+fmt(gain)+' 🌿';
+  const mins=Math.floor(elapsed/60), hrs=Math.floor(mins/60);
+  $('offlineTime').textContent = hrs>0?`Kamu pergi ${hrs} jam ${mins%60} menit`:`Kamu pergi ${mins} menit`;
+  $('offlineModal').classList.add('show');
+}
+$('offlineOk').onclick=()=>$('offlineModal').classList.remove('show');
+$('saveBtn').onclick=()=>save(false);
+$('resetBtn').onclick=()=>{ if(confirm('Reset SEMUA progress termasuk Spora Gaia? Tidak bisa dibatalkan.')){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
+$('soundBtn').onclick=()=>{ state.soundOn=!state.soundOn; initAudio(); $('soundBtn').textContent=state.soundOn?'🔊 Suara':'🔇 Bisu'; if(state.soundOn) sfx('buy'); };
+setInterval(()=>save(true),15000);
+window.addEventListener('beforeunload',()=>save(true));
+
+// ---------- TOAST ----------
+let toastTimer;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1600); }
+
+// ---------- STARS ----------
+(function(){ const c=$('stars'); for(let i=0;i<60;i++){ const s=document.createElement('div'); s.className='star';
+  s.style.left=Math.random()*100+'%'; s.style.top=Math.random()*100+'%';
+  s.style.animationDelay=(Math.random()*3)+'s'; s.style.opacity=Math.random()*0.6+0.2; c.appendChild(s); } })();
+
+// ---------- SERVICE WORKER (PWA / offline) ----------
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+// ---------- INIT ----------
+const hadSave=load();
+$('soundBtn').textContent = state.soundOn?'🔊 Suara':'🔇 Bisu';
+if(hadSave) applyOffline();
+lastStageMin = currentStage().min; // jangan trigger stage-up saat load
+updateStats();
+renderShop();
+scheduleGolden();
+</script>
+</body>
+</html>
