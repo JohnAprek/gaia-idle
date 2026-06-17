@@ -337,9 +337,9 @@ const SAVE_KEY = 'gaia_save_v3';
 const TICK_MS = 100;
 // Lapisan 1 — Planet (Spora Gaia 🌟): frontier dari biomassa/run
 const GAIA_DIV = 100000;        // runEarned per spora (akar)
-const GAIA_BONUS = 0.03;        // faktor = 1 + gaia*0.03
+const GAIA_BONUS = 0.05;        // faktor = 1 + gaia*0.05
 // Lapisan 2 — Galaksi (Bintang ⭐): frontier dari Spora Gaia
-const GAL_REQ = 1000;           // gaia minimum untuk membuka lapisan Galaksi
+const GAL_REQ = 250;            // gaia minimum buka Galaksi (= BINTANG_DIV, agar buka = saat bisa prestige)
 const BINTANG_DIV = 250;        // gaia per bintang (akar)
 const BINTANG_BONUS = 2;        // faktor = 1 + bintang*2
 // Lapisan 3 — Semesta (Singularitas 🌀): frontier dari Bintang
