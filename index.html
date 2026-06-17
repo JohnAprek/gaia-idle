@@ -71,17 +71,36 @@
 
   .planet-area {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    position: relative; overflow: visible; min-height: 0;
+    position: relative; overflow: visible; flex-shrink: 0; padding: 6px 0;
   }
   .planet {
     width: 180px; height: 180px; border-radius: 50%; cursor: pointer; position: relative;
+    flex-shrink: 0; overflow: hidden;
     background: radial-gradient(circle at 35% 30%, #6b7088, #2e3142 70%, #1a1c28);
     box-shadow: 0 0 0 0 rgba(92,224,138,0);
     transition: background 1.2s ease, box-shadow 0.4s ease, transform 0.08s; border: none;
   }
   .planet:active { transform: scale(0.95); }
-  .planet::after { content:''; position:absolute; inset:0; border-radius:50%;
+  .planet::after { content:''; position:absolute; inset:0; border-radius:50%; z-index:2;
     box-shadow: inset -16px -16px 36px rgba(0,0,0,0.5), inset 10px 10px 26px rgba(255,255,255,0.06); }
+
+  /* planet surface terrain (hills/valleys/grooves) — slowly drifts & breathes */
+  .terrain { position:absolute; left:-30%; top:-30%; width:160%; height:160%; z-index:1;
+    pointer-events:none; mix-blend-mode:overlay; opacity:0.72; will-change:transform;
+    background:
+      radial-gradient(circle at 28% 30%, rgba(255,255,255,0.6) 0 6%, transparent 10%),
+      radial-gradient(circle at 63% 22%, rgba(0,0,0,0.55) 0 7%, transparent 12%),
+      radial-gradient(circle at 76% 54%, rgba(255,255,255,0.45) 0 9%, transparent 14%),
+      radial-gradient(circle at 40% 63%, rgba(0,0,0,0.6) 0 10%, transparent 16%),
+      radial-gradient(circle at 52% 44%, rgba(255,255,255,0.4) 0 12%, transparent 19%),
+      radial-gradient(circle at 20% 70%, rgba(0,0,0,0.45) 0 6%, transparent 11%),
+      radial-gradient(circle at 82% 80%, rgba(255,255,255,0.35) 0 7%, transparent 13%),
+      radial-gradient(circle at 35% 18%, rgba(0,0,0,0.35) 0 5%, transparent 9%);
+    animation: planetSpin 80s linear infinite; }
+  @keyframes planetSpin {
+    0%   { transform: rotate(0deg)   scale(1); }
+    50%  { transform: rotate(180deg) scale(1.05); }
+    100% { transform: rotate(360deg) scale(1); } }
   .planet.bump { animation: bump 0.5s ease; }
   @keyframes bump { 0%{transform:scale(1);} 40%{transform:scale(1.12);} 100%{transform:scale(1);} }
   .planet-hint { color: var(--muted); font-size: 11px; margin-top: 10px; }
@@ -108,9 +127,10 @@
     font-weight:700; background: var(--panel); color: var(--muted); cursor:pointer; }
   .buymode .bm.active { background: var(--accent2); color:#06210f; }
 
+  .panel-wrap { min-height: 0; display: flex; flex-direction: column; }
   .shop { background: linear-gradient(135deg, var(--panel), var(--panel2));
     border-radius: var(--radius); padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    overflow-y: auto; }
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .shop::-webkit-scrollbar { width: 6px; }
   .shop::-webkit-scrollbar-thumb { background: var(--panel2); border-radius: 3px; }
 
@@ -221,11 +241,11 @@
   </div>
 
   <div class="planet-area">
-    <button class="planet" id="planet"></button>
+    <button class="planet" id="planet"><span class="terrain"></span></button>
     <div class="planet-hint">Tap the planet to grow life</div>
   </div>
 
-  <div>
+  <div class="panel-wrap">
     <div class="tabs">
       <div class="tab active" data-tab="gen">🌱</div>
       <div class="tab" data-tab="upg">⚡</div>
