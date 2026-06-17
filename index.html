@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -33,9 +33,22 @@
     color: var(--text); overflow: hidden; user-select: none;
   }
   #stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-  .star { position: absolute; width: 2px; height: 2px; background: #fff; border-radius: 50%;
+  .star { position: absolute; background: #fff; border-radius: 50%;
     opacity: 0.6; animation: twinkle 3s infinite ease-in-out; }
-  @keyframes twinkle { 0%,100% { opacity: 0.2; } 50% { opacity: 0.9; } }
+  @keyframes twinkle { 0%,100% { opacity: 0.15; } 50% { opacity: 0.95; } }
+
+  /* drifting satellite */
+  .satellite { position: fixed; top: 0; left: 0; font-size: 20px; z-index: 0; pointer-events: none;
+    opacity: 0.9; filter: drop-shadow(0 0 4px rgba(150,200,255,0.6)); will-change: transform; }
+
+  /* meteors / shooting stars */
+  .meteor { position: fixed; top: 0; left: 0; width: 3px; height: 3px; border-radius: 50%;
+    background: #fff; z-index: 0; pointer-events: none; box-shadow: 0 0 6px 1px #cfe6ff; will-change: transform; }
+  .meteor::after { content: ''; position: absolute; right: 2px; top: 50%; transform: translateY(-50%);
+    width: 70px; height: 1.5px; border-radius: 2px;
+    background: linear-gradient(90deg, rgba(207,230,255,0.9), rgba(207,230,255,0)); }
+  .meteor.big { width: 4px; height: 4px; box-shadow: 0 0 10px 2px #fff; }
+  .meteor.big::after { width: 120px; height: 2px; }
 
   #app {
     position: relative; z-index: 1;
@@ -197,19 +210,19 @@
 
 <div id="app">
   <div class="stats">
-    <div class="biomass"><span id="biomass">0</span> <small>Biomassa 🌿</small></div>
+    <div class="biomass"><span id="biomass">0</span> <small>Biomass 🌿</small></div>
     <div class="substats">
-      <span><b id="perSec">0</b> /dtk</span>
+      <span><b id="perSec">0</b> /sec</span>
       <span class="gaia-badge"><b id="gaiaTop" style="color:var(--purple)">0🌟</b></span>
       <span>x<b id="multTop">1.0</b> bonus</span>
     </div>
-    <div class="stage-name" id="stageName">Planet Mati</div>
+    <div class="stage-name" id="stageName">Dead Planet</div>
     <div id="boostInfo" style="display:none;color:var(--gold);font-size:12px;font-weight:700;margin-top:3px"></div>
   </div>
 
   <div class="planet-area">
     <button class="planet" id="planet"></button>
-    <div class="planet-hint">Ketuk planet untuk menumbuhkan kehidupan</div>
+    <div class="planet-hint">Tap the planet to grow life</div>
   </div>
 
   <div>
@@ -224,31 +237,32 @@
   </div>
 
   <div class="footer">
-    <button class="btn" id="soundBtn">🔊 Suara</button>
-    <button class="btn" id="saveBtn">💾 Simpan</button>
+    <button class="btn" id="musicBtn">🎵 Music</button>
+    <button class="btn" id="soundBtn">🔊 Sound</button>
+    <button class="btn" id="saveBtn">💾 Save</button>
     <button class="btn" id="resetBtn">🔄 Reset</button>
   </div>
 </div>
 
 <div class="modal-bg" id="offlineModal">
   <div class="modal">
-    <h2>Selamat datang kembali! 🌍</h2>
-    <p>Planetmu terus tumbuh selama kamu pergi</p>
+    <h2>Welcome back! 🌍</h2>
+    <p>Your planet kept growing while you were away</p>
     <div class="big" id="offlineGain">+0 🌿</div>
     <p id="offlineTime" style="color:var(--muted);font-size:12px;"></p>
-    <button id="offlineOk">Kumpulkan</button>
+    <button id="offlineOk">Collect</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<!-- OVERLAY IKLAN (simulasi) -->
+<!-- AD OVERLAY (simulated) -->
 <div class="ad-overlay" id="adOverlay">
-  <div class="label">Iklan (simulasi)</div>
-  <div class="skip" id="adSkip" style="display:none">Lewati ▸</div>
+  <div class="label">Ad (simulated)</div>
+  <div class="skip" id="adSkip" style="display:none">Skip ▸</div>
   <div class="fake">🌍</div>
-  <h3 id="adTitle">Iklan sedang diputar…</h3>
-  <p style="color:#aaa;font-size:13px">Hadiahmu menunggu setelah iklan selesai</p>
+  <h3 id="adTitle">Ad is playing…</h3>
+  <p style="color:#aaa;font-size:13px">Your reward awaits after the ad</p>
   <div class="ad-bar"><i id="adBar"></i></div>
 </div>
 
@@ -263,83 +277,83 @@
 
 // ---------- DATA ----------
 const GENERATORS = [
-  { id:'spora',  name:'Spora',         emoji:'🦠', baseCost:15,      rate:0.1,    desc:'Bibit kehidupan pertama' },
-  { id:'lumut',  name:'Lumut',         emoji:'🌿', baseCost:120,     rate:1,      desc:'Menyelimuti bebatuan' },
-  { id:'semak',  name:'Semak',         emoji:'🌳', baseCost:1300,    rate:8,      desc:'Akar mencengkeram tanah' },
-  { id:'pohon',  name:'Pohon',         emoji:'🌲', baseCost:14000,   rate:47,     desc:'Hutan mulai terbentuk' },
-  { id:'hutan',  name:'Hutan',         emoji:'🏞️', baseCost:160000,  rate:260,    desc:'Ekosistem rimbun' },
-  { id:'danau',  name:'Danau',         emoji:'💧', baseCost:1900000, rate:1400,   desc:'Air kehidupan mengalir' },
-  { id:'satwa',  name:'Satwa',         emoji:'🦌', baseCost:25000000,rate:7800,   desc:'Fauna berkembang' },
-  { id:'koloni', name:'Koloni',        emoji:'🏘️', baseCost:4e8,     rate:44000,  desc:'Peradaban lahir' },
-  { id:'kota',   name:'Metropolis',    emoji:'🌆', baseCost:6.5e9,   rate:260000, desc:'Kota raksasa membentang' },
-  { id:'orbit',  name:'Stasiun Orbit', emoji:'🛰️', baseCost:1e11,    rate:1.6e6,  desc:'Kehidupan menjangkau langit' },
-  { id:'bulan',  name:'Koloni Bulan',  emoji:'🌙', baseCost:1.3e12,  rate:9e6,    desc:'Bulan ikut dihidupkan' },
-  { id:'mars',   name:'Terraform Mars',emoji:'🔴', baseCost:1.7e13,  rate:5e7,    desc:'Planet merah membiru' },
-  { id:'asteroid',name:'Sabuk Asteroid',emoji:'🪨', baseCost:2.2e14, rate:2.8e8,  desc:'Tambang kehidupan melayang' },
-  { id:'dyson',  name:'Dyson Swarm',   emoji:'🛸', baseCost:2.9e15,  rate:1.6e9,  desc:'Memanen energi bintang' },
-  { id:'mtbuatan',name:'Matahari Buatan',emoji:'🔆',baseCost:3.8e16, rate:9e9,    desc:'Menyalakan surya baru' },
-  { id:'warp',   name:'Gerbang Warp',  emoji:'🌐', baseCost:5e17,    rate:5e10,   desc:'Kehidupan melintas ruang' },
-  { id:'cincin', name:'Dunia Cincin',  emoji:'💍', baseCost:6.5e18,  rate:2.8e11, desc:'Habitat raksasa melingkar' },
-  { id:'nebula', name:'Nebula Hidup',  emoji:'🌌', baseCost:8.5e19,  rate:1.6e12, desc:'Awan kosmik bernyawa' },
-  { id:'kluster',name:'Kluster Galaksi',emoji:'🌠',baseCost:1.1e21,  rate:9e12,   desc:'Gugus bintang subur' },
-  { id:'jaring', name:'Jaring Kosmik', emoji:'🕸️', baseCost:1.5e22,  rate:5e13,   desc:'Kehidupan menjangkau kosmos' },
+  { id:'spora',  name:'Spore',         emoji:'🦠', baseCost:15,      rate:0.1,    desc:'The first seed of life' },
+  { id:'lumut',  name:'Moss',          emoji:'🌿', baseCost:120,     rate:1,      desc:'Carpeting the bare rocks' },
+  { id:'semak',  name:'Shrub',         emoji:'🌳', baseCost:1300,    rate:8,      desc:'Roots grip the soil' },
+  { id:'pohon',  name:'Tree',          emoji:'🌲', baseCost:14000,   rate:47,     desc:'Forests begin to form' },
+  { id:'hutan',  name:'Forest',        emoji:'🏞️', baseCost:160000,  rate:260,    desc:'A lush ecosystem' },
+  { id:'danau',  name:'Lake',          emoji:'💧', baseCost:1900000, rate:1400,   desc:'Waters of life flow' },
+  { id:'satwa',  name:'Wildlife',      emoji:'🦌', baseCost:25000000,rate:7800,   desc:'Fauna thrives' },
+  { id:'koloni', name:'Colony',        emoji:'🏘️', baseCost:4e8,     rate:44000,  desc:'Civilization is born' },
+  { id:'kota',   name:'Metropolis',    emoji:'🌆', baseCost:6.5e9,   rate:260000, desc:'Vast cities sprawl' },
+  { id:'orbit',  name:'Orbital Station',emoji:'🛰️',baseCost:1e11,    rate:1.6e6,  desc:'Life reaches the sky' },
+  { id:'bulan',  name:'Moon Colony',   emoji:'🌙', baseCost:1.3e12,  rate:9e6,    desc:'The moon comes alive' },
+  { id:'mars',   name:'Terraform Mars',emoji:'🔴', baseCost:1.7e13,  rate:5e7,    desc:'The red planet turns blue' },
+  { id:'asteroid',name:'Asteroid Belt',emoji:'🪨', baseCost:2.2e14,  rate:2.8e8,  desc:'Floating life-mines' },
+  { id:'dyson',  name:'Dyson Swarm',   emoji:'🛸', baseCost:2.9e15,  rate:1.6e9,  desc:'Harvesting a star' },
+  { id:'mtbuatan',name:'Artificial Sun',emoji:'🔆',baseCost:3.8e16,  rate:9e9,    desc:'Igniting a new sun' },
+  { id:'warp',   name:'Warp Gate',     emoji:'🌐', baseCost:5e17,    rate:5e10,   desc:'Life crosses space' },
+  { id:'cincin', name:'Ring World',    emoji:'💍', baseCost:6.5e18,  rate:2.8e11, desc:'A colossal ring habitat' },
+  { id:'nebula', name:'Living Nebula', emoji:'🌌', baseCost:8.5e19,  rate:1.6e12, desc:'A cosmic cloud awakens' },
+  { id:'kluster',name:'Galaxy Cluster',emoji:'🌠', baseCost:1.1e21,  rate:9e12,   desc:'Fertile star clusters' },
+  { id:'jaring', name:'Cosmic Web',    emoji:'🕸️', baseCost:1.5e22,  rate:5e13,   desc:'Life spans the cosmos' },
 ];
 
 const UPGRADES = [
-  { id:'click1', name:'Tangan Hijau',    emoji:'✋', cost:120,    type:'click', mult:2, desc:'Ketukan x2' },
-  { id:'click2', name:'Sentuhan Subur',  emoji:'🤲', cost:6000,   type:'click', mult:3, desc:'Ketukan x3' },
-  { id:'click3', name:'Berkah Gaia',     emoji:'🙌', cost:900000, type:'click', mult:4, desc:'Ketukan x4' },
-  { id:'all1',   name:'Fotosintesis',    emoji:'☀️', cost:2500,   type:'all',   mult:2, desc:'Semua produksi x2' },
-  { id:'all2',   name:'Pupuk Kosmik',    emoji:'✨', cost:90000,  type:'all',   mult:2, desc:'Semua produksi x2' },
-  { id:'all3',   name:'Hujan Meteor Air',emoji:'☄️', cost:3.5e6,  type:'all',   mult:3, desc:'Semua produksi x3' },
-  { id:'all4',   name:'Inti Geotermal',  emoji:'🌋', cost:1.8e8,  type:'all',   mult:3, desc:'Semua produksi x3' },
-  { id:'all5',   name:'Medan Magnet',    emoji:'🧲', cost:1.2e10, type:'all',   mult:3, desc:'Semua produksi x3' },
+  { id:'click1', name:'Green Thumb',     emoji:'✋', cost:120,    type:'click', mult:2, desc:'Tap power x2' },
+  { id:'click2', name:'Fertile Touch',   emoji:'🤲', cost:6000,   type:'click', mult:3, desc:'Tap power x3' },
+  { id:'click3', name:'Gaia\'s Blessing', emoji:'🙌', cost:900000, type:'click', mult:4, desc:'Tap power x4' },
+  { id:'all1',   name:'Photosynthesis',  emoji:'☀️', cost:2500,   type:'all',   mult:2, desc:'All production x2' },
+  { id:'all2',   name:'Cosmic Fertilizer',emoji:'✨', cost:90000, type:'all',   mult:2, desc:'All production x2' },
+  { id:'all3',   name:'Water Meteor Shower',emoji:'☄️',cost:3.5e6,type:'all',   mult:3, desc:'All production x3' },
+  { id:'all4',   name:'Geothermal Core', emoji:'🌋', cost:1.8e8,  type:'all',   mult:3, desc:'All production x3' },
+  { id:'all5',   name:'Magnetic Field',  emoji:'🧲', cost:1.2e10, type:'all',   mult:3, desc:'All production x3' },
 ];
 
 const STAGES = [
-  { min:0,         name:'Planet Mati',     core:'#6b7088', mid:'#2e3142' },
-  { min:50,        name:'Bebatuan Lembap', core:'#7a8a6b', mid:'#3a4232' },
-  { min:1500,      name:'Hijau Pertama',   core:'#8fcf6b', mid:'#3a6b32' },
-  { min:40000,     name:'Padang Subur',    core:'#7be08a', mid:'#2e8b4f' },
-  { min:800000,    name:'Dunia Berair',    core:'#6bd6e0', mid:'#2e6b8b' },
-  { min:25000000,  name:'Planet Hidup',    core:'#9be07b', mid:'#2e8b5f' },
-  { min:800000000, name:'Peradaban Gaia',  core:'#e0d36b', mid:'#8b7a2e' },
-  { min:5e10,      name:'Dunia Sempurna',  core:'#b98bff', mid:'#5b3a8b' },
-  { min:2e12,      name:'Sistem Bintang',  core:'#ffd866', mid:'#7a5b1e' },
-  { min:8e13,      name:'Galaksi Muda',    core:'#9be0ff', mid:'#2e5b8b' },
-  { min:3e15,      name:'Nebula Sadar',    core:'#ff9be0', mid:'#8b2e6b' },
-  { min:1e17,      name:'Jaring Kosmik',   core:'#c9a0ff', mid:'#4b2e8b' },
-  { min:5e18,      name:'Realitas Gaia',   core:'#a0ffe0', mid:'#2e8b7a' },
+  { min:0,         name:'Dead Planet',     core:'#6b7088', mid:'#2e3142' },
+  { min:50,        name:'Damp Rocks',      core:'#7a8a6b', mid:'#3a4232' },
+  { min:1500,      name:'First Green',     core:'#8fcf6b', mid:'#3a6b32' },
+  { min:40000,     name:'Fertile Plains',  core:'#7be08a', mid:'#2e8b4f' },
+  { min:800000,    name:'Water World',     core:'#6bd6e0', mid:'#2e6b8b' },
+  { min:25000000,  name:'Living Planet',   core:'#9be07b', mid:'#2e8b5f' },
+  { min:800000000, name:'Gaia Civilization',core:'#e0d36b',mid:'#8b7a2e' },
+  { min:5e10,      name:'Perfect World',   core:'#b98bff', mid:'#5b3a8b' },
+  { min:2e12,      name:'Star System',     core:'#ffd866', mid:'#7a5b1e' },
+  { min:8e13,      name:'Young Galaxy',    core:'#9be0ff', mid:'#2e5b8b' },
+  { min:3e15,      name:'Sentient Nebula', core:'#ff9be0', mid:'#8b2e6b' },
+  { min:1e17,      name:'Cosmic Web',      core:'#c9a0ff', mid:'#4b2e8b' },
+  { min:5e18,      name:'Gaia Reality',    core:'#a0ffe0', mid:'#2e8b7a' },
 ];
 
 const ACHIEVEMENTS = [
-  { id:'first',    emoji:'👆', name:'Sentuhan Pertama', desc:'Ketuk planet',        check:s=>s.clicks>=1 },
-  { id:'spora1',   emoji:'🦠', name:'Awal Mula',        desc:'Beli Spora pertama',  check:s=>s.gens.spora>=1 },
-  { id:'k1',       emoji:'🌱', name:'Tunas',            desc:'1K biomassa',         check:s=>s.lifetime>=1000 },
-  { id:'m1',       emoji:'🌳', name:'Rimbun',           desc:'1J biomassa',         check:s=>s.lifetime>=1e6 },
-  { id:'water',    emoji:'💧', name:'Dunia Berair',     desc:'Capai stage air',     check:s=>s.runEarned>=800000 },
-  { id:'g100',     emoji:'🏭', name:'Industrialis',     desc:'100 generator',       check:s=>totalGens()>=100 },
-  { id:'prest1',   emoji:'🌟', name:'Kelahiran Kembali',desc:'Prestige pertama',    check:s=>s.prestigeCount>=1 },
-  { id:'gaia25',   emoji:'💫', name:'Penjaga Gaia',     desc:'25 Spora Gaia',       check:s=>s.gaiaSpores>=25 },
-  { id:'allupg',   emoji:'⚡', name:'Kolektor',         desc:'Semua upgrade',       check:s=>UPGRADES.every(u=>s.upgrades[u.id]) },
-  { id:'offline',  emoji:'💤', name:'Sabar Menunggu',   desc:'Klaim hasil offline', check:s=>s.claimedOffline },
-  { id:'clicks100',emoji:'💪', name:'Rajin',            desc:'100 ketukan',         check:s=>s.clicks>=100 },
-  { id:'boost1',   emoji:'🔥', name:'Akselerasi',       desc:'Aktifkan boost',      check:s=>s.boostUntil>0 },
-  { id:'golden1',  emoji:'🌟', name:'Pemburu Emas',     desc:'Tangkap tunas emas',  check:s=>s.goldenCaught>=1 },
-  { id:'allgen',   emoji:'🌐', name:'Penguasa Kosmik',  desc:'Punya semua generator',check:s=>GENERATORS.every(g=>s.gens[g.id]>0) },
-  { id:'galaxy1',  emoji:'⭐', name:'Penempa Galaksi',  desc:'Tempa galaksi pertama',check:s=>s.galaxyCount>=1 },
-  { id:'bintang25',emoji:'✨', name:'Gugus Bintang',    desc:'Kumpulkan 25 Bintang', check:s=>s.bintang>=25 },
-  { id:'universe1',emoji:'🌀', name:'Pencipta Semesta', desc:'Ciptakan semesta pertama',check:s=>s.universeCount>=1 },
+  { id:'first',    emoji:'👆', name:'First Touch',      desc:'Tap the planet',       check:s=>s.clicks>=1 },
+  { id:'spora1',   emoji:'🦠', name:'Genesis',          desc:'Buy first Spore',      check:s=>s.gens.spora>=1 },
+  { id:'k1',       emoji:'🌱', name:'Sprout',           desc:'1K biomass',           check:s=>s.lifetime>=1000 },
+  { id:'m1',       emoji:'🌳', name:'Lush',             desc:'1M biomass',           check:s=>s.lifetime>=1e6 },
+  { id:'water',    emoji:'💧', name:'Water World',      desc:'Reach the water stage',check:s=>s.runEarned>=800000 },
+  { id:'g100',     emoji:'🏭', name:'Industrialist',    desc:'100 generators',       check:s=>totalGens()>=100 },
+  { id:'prest1',   emoji:'🌟', name:'Rebirth',          desc:'First prestige',       check:s=>s.prestigeCount>=1 },
+  { id:'gaia25',   emoji:'💫', name:'Gaia Keeper',      desc:'25 Gaia Spores',       check:s=>s.gaiaSpores>=25 },
+  { id:'allupg',   emoji:'⚡', name:'Collector',        desc:'All upgrades',         check:s=>UPGRADES.every(u=>s.upgrades[u.id]) },
+  { id:'offline',  emoji:'💤', name:'Patience',         desc:'Claim offline gains',  check:s=>s.claimedOffline },
+  { id:'clicks100',emoji:'💪', name:'Diligent',         desc:'100 taps',             check:s=>s.clicks>=100 },
+  { id:'boost1',   emoji:'🔥', name:'Acceleration',     desc:'Activate a boost',     check:s=>s.boostUntil>0 },
+  { id:'golden1',  emoji:'🌟', name:'Gold Hunter',      desc:'Catch a golden sprout',check:s=>s.goldenCaught>=1 },
+  { id:'allgen',   emoji:'🌐', name:'Cosmic Master',    desc:'Own every generator',  check:s=>GENERATORS.every(g=>s.gens[g.id]>0) },
+  { id:'galaxy1',  emoji:'⭐', name:'Galaxy Forger',    desc:'Forge first galaxy',   check:s=>s.galaxyCount>=1 },
+  { id:'bintang25',emoji:'✨', name:'Star Cluster',     desc:'Collect 25 Stars',     check:s=>s.bintang>=25 },
+  { id:'universe1',emoji:'🌀', name:'Universe Maker',   desc:'Create first universe',check:s=>s.universeCount>=1 },
 ];
 
 const COST_GROWTH = 1.18;
 const SAVE_KEY = 'gaia_save_v3';
 const TICK_MS = 100;
-// Lapisan 1 — Planet (Spora Gaia 🌟): frontier dari biomassa/run
-const GAIA_DIV = 100000;        // runEarned per spora (akar)
-const GAIA_BONUS = 0.05;        // faktor = 1 + gaia*0.05
-// Lapisan 2 — Galaksi (Bintang ⭐): frontier dari Spora Gaia
-const GAL_REQ = 250;            // gaia minimum buka Galaksi (= BINTANG_DIV, agar buka = saat bisa prestige)
+// Layer 1 — Planet (Gaia Spores 🌟): frontier from biomass/run
+const GAIA_DIV = 100000;        // runEarned per spore (sqrt)
+const GAIA_BONUS = 0.05;        // factor = 1 + gaia*0.05
+// Layer 2 — Galaxy (Stars ⭐): frontier from Gaia Spores
+const GAL_REQ = 250;            // min gaia to unlock Galaxy (= BINTANG_DIV, so unlock = when prestige is possible)
 const BINTANG_DIV = 250;        // gaia per bintang (akar)
 const BINTANG_BONUS = 2;        // faktor = 1 + bintang*2
 // Lapisan 3 — Semesta (Singularitas 🌀): frontier dari Bintang
@@ -356,7 +370,7 @@ let state = {
   bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
   singularitas: 0, universeCount: 0, universeUnlocked: false,
   clicks: 0, claimedOffline: false,
-  soundOn: true, lastSave: Date.now(),
+  soundOn: true, musicOn: true, lastSave: Date.now(),
   boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
 };
 GENERATORS.forEach(g => state.gens[g.id] = 0);
@@ -437,12 +451,12 @@ function buyUpgrade(u){
 function doPrestige(){
   const gain = potentialGaia();
   if (gain < 1) return;
-  if (!confirm(`Lahirkan planet baru?\n\nKamu akan dapat ${gain} 🌟 Spora Gaia (bonus permanen +${(gain*GAIA_BONUS*100).toFixed(0)}%).\n\nBiomassa, generator & upgrade di-reset. Spora Gaia & pencapaian tetap.`)) return;
+  if (!confirm(`Rebirth the planet?\n\nYou will gain ${gain} 🌟 Gaia Spores (permanent bonus +${(gain*GAIA_BONUS*100).toFixed(0)}%).\n\nBiomass, generators & upgrades reset. Gaia Spores & achievements stay.`)) return;
   state.gaiaSpores += gain;
   state.prestigeCount++;
   resetRun();
   sfx('prestige'); burstParticles('🌟', 16);
-  toast(`🌟 +${gain} Spora Gaia! Planet baru lahir.`);
+  toast(`🌟 +${gain} Gaia Spores! A new planet is born.`);
   renderShop(); updateStats(); save(true);
 }
 // reset level "run" (biomassa, generator, upgrade) — dipakai semua lapisan
@@ -454,26 +468,26 @@ function resetRun(){
 function doGalaxy(){
   const gain = potentialBintang();
   if (gain < 1) return;
-  if (!confirm(`Tempa Galaksi baru?\n\nDapat ${gain} ⭐ Bintang (bonus permanen, faktor +${(gain*BINTANG_BONUS*100).toFixed(0)}%).\n\nSpora Gaia, biomassa, generator & upgrade DIRESET. Bintang & Singularitas tetap.`)) return;
+  if (!confirm(`Forge a new Galaxy?\n\nGain ${gain} ⭐ Stars (permanent bonus +${(gain*BINTANG_BONUS*100).toFixed(0)}%).\n\nGaia Spores, biomass, generators & upgrades RESET. Stars & Singularities stay.`)) return;
   state.bintang += gain;
   state.galaxyCount++;
   state.gaiaSpores = 0;
   resetRun();
   sfx('prestige'); burstParticles('⭐', 18);
-  toast(`⭐ +${gain} Bintang! Galaksi baru ditempa.`);
+  toast(`⭐ +${gain} Stars! A new galaxy is forged.`);
   renderShop(); updateStats(); save(true);
 }
 function doUniverse(){
   const gain = potentialSing();
   if (gain < 1) return;
-  if (!confirm(`Ciptakan Semesta baru?\n\nDapat ${gain} 🌀 Singularitas (bonus permanen TERKUAT, faktor +${(gain*SING_BONUS*100).toFixed(0)}%).\n\nSEMUA direset kecuali Singularitas & pencapaian.`)) return;
+  if (!confirm(`Create a new Universe?\n\nGain ${gain} 🌀 Singularities (STRONGEST permanent bonus +${(gain*SING_BONUS*100).toFixed(0)}%).\n\nEVERYTHING resets except Singularities & achievements.`)) return;
   state.singularitas += gain;
   state.universeCount++;
   state.bintang = 0;
   state.gaiaSpores = 0;
   resetRun();
   sfx('prestige'); burstParticles('🌀', 20);
-  toast(`🌀 +${gain} Singularitas! Semesta baru tercipta.`);
+  toast(`🌀 +${gain} Singularities! A new universe is created.`);
   renderShop(); updateStats(); save(true);
 }
 
@@ -492,8 +506,8 @@ function updateStats(){
   const gm = globalMult();
   $('multTop').textContent = gm<1000 ? gm.toFixed(gm<10?2:1) : fmt(gm);
   // buka lapisan saat ambang tercapai
-  if(!state.galaxyUnlocked && state.gaiaSpores>=GAL_REQ){ state.galaxyUnlocked=true; toast('⭐ Lapisan GALAKSI terbuka! Cek tab 🌟'); sfx('ach'); }
-  if(!state.universeUnlocked && state.bintang>=UNI_REQ){ state.universeUnlocked=true; toast('🌀 Lapisan SEMESTA terbuka! Cek tab 🌟'); sfx('ach'); }
+  if(!state.galaxyUnlocked && state.gaiaSpores>=GAL_REQ){ state.galaxyUnlocked=true; toast('⭐ GALAXY layer unlocked! Check the 🌟 tab'); sfx('ach'); }
+  if(!state.universeUnlocked && state.bintang>=UNI_REQ){ state.universeUnlocked=true; toast('🌀 UNIVERSE layer unlocked! Check the 🌟 tab'); sfx('ach'); }
   const pd=$('prestigeDot'); if(pd) pd.style.display = (potentialGaia()>=1||potentialBintang()>=1||potentialSing()>=1)?'block':'none';
   const stage = currentStage();
   $('stageName').textContent = stage.name;
@@ -513,7 +527,7 @@ function updateStats(){
 
 function updateBoostUI(){
   const info=$('boostInfo'); const parts=[];
-  if(state.adsRemoved) parts.push('💎 x2 permanen');
+  if(state.adsRemoved) parts.push('💎 x2 permanent');
   if(boostActive()) parts.push('🔥 x2 boost ('+boostRemainStr()+')');
   if(parts.length){ info.style.display='block'; info.textContent=parts.join(' · '); }
   else info.style.display='none';
@@ -539,11 +553,11 @@ function renderShop(){
         <div class="emoji">${g.emoji}</div>
         <div class="info">
           <div class="name">${g.name} ${buyMode!==1?`<span style="color:var(--accent)">x${fmt(qty)}</span>`:''}</div>
-          <div class="desc">${g.desc} · +${fmt(g.rate*globalMult())}/dtk ea</div>
+          <div class="desc">${g.desc} · +${fmt(g.rate*globalMult())}/sec ea</div>
         </div>
         <div class="right">
           <div class="cost ${afford?'':'cant'}">${fmt(cost)} 🌿</div>
-          <div class="owned">punya: ${state.gens[g.id]}</div>
+          <div class="owned">owned: ${state.gens[g.id]}</div>
         </div>`;
       el.onclick = ()=>buyGen(g);
       shop.appendChild(el);
@@ -559,11 +573,11 @@ function renderShop(){
       el.innerHTML=`
         <div class="emoji">${u.emoji}</div>
         <div class="info"><div class="name">${u.name}</div><div class="desc">${u.desc}</div></div>
-        <div class="right"><div class="cost ${bought?'':afford?'':'cant'}">${bought?'✅ Dibeli':fmt(u.cost)+' 🌿'}</div></div>`;
+        <div class="right"><div class="cost ${bought?'':afford?'':'cant'}">${bought?'✅ Owned':fmt(u.cost)+' 🌿'}</div></div>`;
       if(!bought) el.onclick=()=>buyUpgrade(u);
       shop.appendChild(el);
     });
-    if(!any) shop.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">Belum ada upgrade.</p>';
+    if(!any) shop.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">No upgrades yet.</p>';
   } else if (currentTab === 'prestige') {
     renderPrestige(shop);
   } else if (currentTab === 'ach') {
@@ -580,7 +594,7 @@ function renderShop(){
     const cnt = Object.keys(state.achs).length;
     const head=document.createElement('p');
     head.style.cssText='text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px';
-    head.innerHTML=`Pencapaian: <b style="color:var(--gold)">${cnt}/${ACHIEVEMENTS.length}</b> · bonus +${cnt}%`;
+    head.innerHTML=`Achievements: <b style="color:var(--gold)">${cnt}/${ACHIEVEMENTS.length}</b> · bonus +${cnt}%`;
     shop.insertBefore(head, grid);
     document.querySelector('[data-tab=ach]').classList.remove('has-news');
   } else if (currentTab === 'boost') {
@@ -593,10 +607,10 @@ function prestigeCard({icon, color, title, amount, bonusPct, gain, gainIcon, req
   c.style.borderColor = color+'55';
   c.innerHTML = `
     <div class="bt" style="color:${color}">${icon} ${title} — <span>${fmt(amount)}</span></div>
-    <div class="bd">Bonus permanen <b style="color:${color}">+${bonusPct}%</b> · ${countLabel}: ${count}x</div>
+    <div class="bd">Permanent bonus <b style="color:${color}">+${bonusPct}%</b> · ${countLabel}: ${count}x</div>
     <div style="text-align:center;font-size:20px;font-weight:800;color:var(--gold);margin:6px 0">+${fmt(gain)} ${gainIcon}</div>
     <div class="bd" style="text-align:center">${reqLabel} <b style="color:var(--gold)">${fmt(reqVal)}</b> ${reqUnit}<br>${progLabel}: ${fmt(progVal)}</div>
-    <button class="prestige-btn" ${gain<1?'disabled':''}>${gain<1?'Belum cukup':btnLabel+' (+'+fmt(gain)+')'}</button>`;
+    <button class="prestige-btn" ${gain<1?'disabled':''}>${gain<1?'Not enough yet':btnLabel+' (+'+fmt(gain)+')'}</button>`;
   c.querySelector('button').onclick = ()=>{ if(gain>=1) onBuy(); };
   return c;
 }
@@ -609,42 +623,42 @@ function renderPrestige(shop){
   // header ringkas
   const head=document.createElement('p');
   head.style.cssText='text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px';
-  head.innerHTML=`🌟 <b style="color:var(--purple)">${fmt(state.gaiaSpores)}</b> Gaia · ⭐ <b style="color:var(--gold)">${fmt(state.bintang)}</b> Bintang · 🌀 <b style="color:#a0ffe0">${fmt(state.singularitas)}</b> Sing`;
+  head.innerHTML=`🌟 <b style="color:var(--purple)">${fmt(state.gaiaSpores)}</b> Gaia · ⭐ <b style="color:var(--gold)">${fmt(state.bintang)}</b> Stars · 🌀 <b style="color:#a0ffe0">${fmt(state.singularitas)}</b> Sing`;
   shop.appendChild(head);
 
-  // Lapisan 1 — Planet
+  // Layer 1 — Planet
   shop.appendChild(prestigeCard({
     icon:'🌟', color:'#b98bff', title:'Planet', amount:state.gaiaSpores,
     bonusPct:(state.gaiaSpores*GAIA_BONUS*100).toFixed(0), gain:potentialGaia(), gainIcon:'🌟',
-    reqLabel:'Spora berikutnya saat run capai', reqVal:nextSporeReq(), reqUnit:'🌿',
-    progLabel:'Run ini', progVal:state.runEarned,
-    btnLabel:'Lahirkan Planet', onBuy:doPrestige, count:state.prestigeCount, countLabel:'Total planet'
+    reqLabel:'Next spore when run reaches', reqVal:nextSporeReq(), reqUnit:'🌿',
+    progLabel:'This run', progVal:state.runEarned,
+    btnLabel:'Rebirth Planet', onBuy:doPrestige, count:state.prestigeCount, countLabel:'Planets'
   }));
 
-  // Lapisan 2 — Galaksi
+  // Layer 2 — Galaxy
   if(state.galaxyUnlocked || state.bintang>0){
     shop.appendChild(prestigeCard({
-      icon:'⭐', color:'#ffd866', title:'Galaksi', amount:state.bintang,
+      icon:'⭐', color:'#ffd866', title:'Galaxy', amount:state.bintang,
       bonusPct:(state.bintang*BINTANG_BONUS*100).toFixed(0), gain:potentialBintang(), gainIcon:'⭐',
-      reqLabel:'Bintang berikutnya saat Gaia capai', reqVal:nextBintangReq(), reqUnit:'🌟',
-      progLabel:'Gaia sekarang', progVal:state.gaiaSpores,
-      btnLabel:'Tempa Galaksi', onBuy:doGalaxy, count:state.galaxyCount, countLabel:'Total galaksi'
+      reqLabel:'Next star when Gaia reaches', reqVal:nextBintangReq(), reqUnit:'🌟',
+      progLabel:'Gaia now', progVal:state.gaiaSpores,
+      btnLabel:'Forge Galaxy', onBuy:doGalaxy, count:state.galaxyCount, countLabel:'Galaxies'
     }));
   } else {
-    shop.appendChild(lockedCard('⭐','Galaksi (lapisan 2)', `Terbuka saat punya <b style="color:var(--gold)">${GAL_REQ}</b> Spora Gaia. Sekarang: ${fmt(state.gaiaSpores)} 🌟`));
+    shop.appendChild(lockedCard('⭐','Galaxy (layer 2)', `Unlocks at <b style="color:var(--gold)">${GAL_REQ}</b> Gaia Spores. Now: ${fmt(state.gaiaSpores)} 🌟`));
   }
 
-  // Lapisan 3 — Semesta
+  // Layer 3 — Universe
   if(state.universeUnlocked || state.singularitas>0){
     shop.appendChild(prestigeCard({
-      icon:'🌀', color:'#a0ffe0', title:'Semesta', amount:state.singularitas,
+      icon:'🌀', color:'#a0ffe0', title:'Universe', amount:state.singularitas,
       bonusPct:(state.singularitas*SING_BONUS*100).toFixed(0), gain:potentialSing(), gainIcon:'🌀',
-      reqLabel:'Singularitas berikutnya saat Bintang capai', reqVal:nextSingReq(), reqUnit:'⭐',
-      progLabel:'Bintang sekarang', progVal:state.bintang,
-      btnLabel:'Ciptakan Semesta', onBuy:doUniverse, count:state.universeCount, countLabel:'Total semesta'
+      reqLabel:'Next singularity when Stars reach', reqVal:nextSingReq(), reqUnit:'⭐',
+      progLabel:'Stars now', progVal:state.bintang,
+      btnLabel:'Create Universe', onBuy:doUniverse, count:state.universeCount, countLabel:'Universes'
     }));
   } else if(state.galaxyUnlocked || state.bintang>0){
-    shop.appendChild(lockedCard('🌀','Semesta (lapisan 3)', `Terbuka saat punya <b style="color:var(--gold)">${UNI_REQ}</b> Bintang. Sekarang: ${fmt(state.bintang)} ⭐`));
+    shop.appendChild(lockedCard('🌀','Universe (layer 3)', `Unlocks at <b style="color:var(--gold)">${UNI_REQ}</b> Stars. Now: ${fmt(state.bintang)} ⭐`));
   }
 }
 
@@ -652,66 +666,66 @@ function renderBoost(shop){
   // banner jika boost aktif
   if (boostActive()){
     const b=document.createElement('div'); b.className='boost-active-banner';
-    b.innerHTML=`🔥 Produksi x2 aktif — sisa <b id="boostCountdown">${boostRemainStr()}</b>`;
+    b.innerHTML=`🔥 x2 production active — <b id="boostCountdown">${boostRemainStr()}</b> left`;
     shop.appendChild(b);
   }
   const onCd = Date.now() < state.adCooldownUntil;
   const cdLeft = Math.ceil((state.adCooldownUntil - Date.now())/1000);
 
-  // 1) Rewarded: x2 produksi 4 jam
+  // 1) Rewarded: x2 production for 4 hours
   const c1=document.createElement('div'); c1.className='boost-card';
   c1.innerHTML=`
-    <div class="bt">🔥 Lonjakan Pertumbuhan</div>
-    <div class="bd">Tonton iklan singkat → produksi <b>x2 selama 4 jam</b>.</div>
-    <button class="ad-btn" ${onCd?'disabled':''}>${onCd?`Tunggu ${cdLeft}s`:'▶ Tonton Iklan'}</button>`;
-  c1.querySelector('button').onclick=()=>watchAd('Lonjakan Pertumbuhan', ()=>{
+    <div class="bt">🔥 Growth Surge</div>
+    <div class="bd">Watch a short ad → <b>x2 production for 4 hours</b>.</div>
+    <button class="ad-btn" ${onCd?'disabled':''}>${onCd?`Wait ${cdLeft}s`:'▶ Watch Ad'}</button>`;
+  c1.querySelector('button').onclick=()=>watchAd('Growth Surge', ()=>{
     state.boostUntil=Math.max(state.boostUntil,Date.now())+4*3600*1000;
     state.adCooldownUntil=Date.now()+90*1000;
-    burstParticles('🔥',12); toast('🔥 Boost x2 selama 4 jam aktif!');
+    burstParticles('🔥',12); toast('🔥 x2 boost active for 4 hours!');
     updateStats(); renderShop();
   });
   shop.appendChild(c1);
 
-  // 2) Rewarded: panen instan (= 2 jam produksi)
+  // 2) Rewarded: instant harvest (= 2 hours of production)
   const harvest = perSec()*2*3600;
   const c2=document.createElement('div'); c2.className='boost-card';
   c2.innerHTML=`
-    <div class="bt">🎁 Panen Instan</div>
-    <div class="bd">Tonton iklan → langsung dapat <b>${fmt(harvest)} 🌿</b> (≈2 jam produksi).</div>
-    <button class="ad-btn" ${(onCd||harvest<=0)?'disabled':''}>${harvest<=0?'Butuh produksi dulu':onCd?`Tunggu ${cdLeft}s`:'▶ Tonton Iklan'}</button>`;
-  c2.querySelector('button').onclick=()=>watchAd('Panen Instan', ()=>{
+    <div class="bt">🎁 Instant Harvest</div>
+    <div class="bd">Watch an ad → instantly get <b>${fmt(harvest)} 🌿</b> (≈2 hours of production).</div>
+    <button class="ad-btn" ${(onCd||harvest<=0)?'disabled':''}>${harvest<=0?'Need production first':onCd?`Wait ${cdLeft}s`:'▶ Watch Ad'}</button>`;
+  c2.querySelector('button').onclick=()=>watchAd('Instant Harvest', ()=>{
     const amt=perSec()*2*3600; addBiomass(amt);
     state.adCooldownUntil=Date.now()+90*1000;
-    burstParticles('🌿',12); toast(`🎁 +${fmt(amt)} biomassa!`);
+    burstParticles('🌿',12); toast(`🎁 +${fmt(amt)} biomass!`);
     updateStats(); renderShop();
   });
   shop.appendChild(c2);
 
-  // 3) IAP: hapus iklan + x2 permanen
+  // 3) IAP: remove ads + permanent x2
   const c3=document.createElement('div'); c3.className='boost-card';
   c3.innerHTML=`
-    <div class="bt">💎 Paket Penjaga Gaia</div>
-    <div class="bd">${state.adsRemoved?'✅ Sudah dimiliki — produksi <b>x2 permanen</b> aktif & iklan dihapus.':'Hapus semua iklan <b>+ produksi x2 permanen</b>. <span style="color:var(--gold)">Rp 25.000</span>'}</div>
-    <button class="iap-btn" ${state.adsRemoved?'disabled':''}>${state.adsRemoved?'Dimiliki':'Beli (simulasi)'}</button>`;
+    <div class="bt">💎 Gaia Guardian Pack</div>
+    <div class="bd">${state.adsRemoved?'✅ Owned — <b>permanent x2</b> production active & ads removed.':'Remove all ads <b>+ permanent x2 production</b>. <span style="color:var(--gold)">$1.99</span>'}</div>
+    <button class="iap-btn" ${state.adsRemoved?'disabled':''}>${state.adsRemoved?'Owned':'Buy (simulated)'}</button>`;
   c3.querySelector('button').onclick=()=>{
     if(state.adsRemoved) return;
-    // PLACEHOLDER pembayaran — di produksi sambungkan ke Google Play Billing / Stripe
-    if(confirm('SIMULASI pembelian.\n\nDi versi rilis ini terhubung ke Google Play Billing.\n\nLanjut "beli" untuk demo?')){
+    // PLACEHOLDER payment — in production, wire to Google Play Billing / Stripe
+    if(confirm('SIMULATED purchase.\n\nIn the release build this connects to Google Play Billing.\n\nProceed with the demo "buy"?')){
       state.adsRemoved=true; sfx('prestige'); burstParticles('💎',16);
-      toast('💎 Terima kasih! x2 permanen aktif.'); updateStats(); renderShop(); save(true);
+      toast('💎 Thank you! Permanent x2 active.'); updateStats(); renderShop(); save(true);
     }
   };
   shop.appendChild(c3);
 
   const note=document.createElement('p');
   note.style.cssText='text-align:center;color:var(--muted);font-size:10px;margin-top:6px';
-  note.textContent='Iklan & pembelian di prototype ini masih simulasi (placeholder).';
+  note.textContent='Ads & purchases in this prototype are simulated (placeholder).';
   shop.appendChild(note);
 }
 function boostRemainStr(){
   const s=Math.max(0,Math.ceil((state.boostUntil-Date.now())/1000));
   const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
-  return h>0?`${h}j ${m}m`:m>0?`${m}m ${sec}s`:`${sec}s`;
+  return h>0?`${h}h ${m}m`:m>0?`${m}m ${sec}s`:`${sec}s`;
 }
 
 function buyModeBar(){
@@ -733,7 +747,7 @@ function checkAchievements(){
   ACHIEVEMENTS.forEach(a=>{
     if(!state.achs[a.id] && a.check(state)){
       state.achs[a.id]=true; unlocked=true;
-      toast(`🏆 Pencapaian: ${a.name}`);
+      toast(`🏆 Achievement: ${a.name}`);
       sfx('ach');
       if(currentTab!=='ach') document.querySelector('[data-tab=ach]').classList.add('has-news');
     }
@@ -745,13 +759,13 @@ function checkAchievements(){
 function onStageUp(stage){
   burstParticles('✨', 12);
   sfx('stage');
-  toast(`🌍 Planet berkembang: ${stage.name}!`);
+  toast(`🌍 Planet evolved: ${stage.name}!`);
   const p=$('planet'); p.classList.add('bump'); setTimeout(()=>p.classList.remove('bump'),500);
 }
 
 // ---------- CLICK ----------
 $('planet').addEventListener('pointerdown',(e)=>{
-  initAudio();
+  initAudio(); startMusic();
   const gain = clickPower();
   addBiomass(gain); state.clicks++;
   sfx('click');
@@ -815,14 +829,43 @@ function sfx(kind){
   else if(kind==='prestige'){ [392,523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'sine',0.08),i*100)); }
 }
 
-// ---------- REWARDED AD (simulasi) ----------
-// CATATAN: di versi rilis, ganti isi watchAd dengan SDK iklan asli
-// (AdMob via TWA, atau Google Ad Manager). Panggil reward() di callback "onRewarded".
+// ---------- AMBIENT MUSIC (generative, no files) ----------
+let musicTimer=null, mStep=0;
+const MUSIC_SCALE=[174.6,196,220,261.6,293.7,349.2,392,440,523.3]; // gentle pentatonic-ish pad
+function musicTone(freq, dur, vol){
+  if(!actx || !state.musicOn) return;
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type='sine'; o.frequency.value=freq;
+  const t0=actx.currentTime;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(vol, t0+dur*0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t0); o.stop(t0+dur);
+}
+function startMusic(){
+  initAudio();
+  if(musicTimer) return; // satu scheduler saja; toggle dikendalikan state.musicOn
+  musicTimer=setInterval(()=>{
+    if(!state.musicOn || !actx || actx.state!=='running') return;
+    mStep++;
+    if(Math.random()<0.72){ // melodi lembut (kadang jeda)
+      const f=MUSIC_SCALE[Math.floor(Math.random()*MUSIC_SCALE.length)];
+      musicTone(f, 1.8, 0.035);
+    }
+    if(mStep%4===0) musicTone(MUSIC_SCALE[0]/2, 3.4, 0.03);          // bass pad
+    if(Math.random()<0.14) musicTone(MUSIC_SCALE[MUSIC_SCALE.length-1]*2, 0.9, 0.018); // sparkle
+  }, 720);
+}
+
+// ---------- REWARDED AD (simulated) ----------
+// NOTE: in the release build, replace the body of watchAd with a real ad SDK
+// (AdMob via TWA, or Google Ad Manager). Call reward() in the "onRewarded" callback.
 let adTimer=null;
 function watchAd(label, reward){
   initAudio();
   const ov=$('adOverlay'), bar=$('adBar'), skip=$('adSkip');
-  $('adTitle').textContent='Iklan: '+label;
+  $('adTitle').textContent='Ad: '+label;
   bar.style.width='0%'; skip.style.display='none'; ov.classList.add('show');
   const dur=4000, start=Date.now(); let done=false;
   if(adTimer) clearInterval(adTimer);
@@ -832,7 +875,7 @@ function watchAd(label, reward){
     if(p>=0.25) skip.style.display='block';
     if(p>=1 && !done){ done=true; clearInterval(adTimer); ov.classList.remove('show'); sfx('ach'); reward(); }
   },50);
-  skip.onclick=()=>{ if(done) return; clearInterval(adTimer); ov.classList.remove('show'); toast('Iklan dilewati — hadiah batal'); };
+  skip.onclick=()=>{ if(done) return; clearInterval(adTimer); ov.classList.remove('show'); toast('Ad skipped — reward cancelled'); };
 }
 
 // ---------- GOLDEN SPROUT (event acak) ----------
@@ -849,9 +892,9 @@ function spawnGolden(){
   goldenEl.onclick=()=>{
     state.goldenCaught++;
     const roll=Math.random();
-    if(roll<0.5){ const amt=Math.max(50, perSec()*60*5); addBiomass(amt); toast(`🌟 Tunas Emas! +${fmt(amt)} 🌿`); }
-    else if(roll<0.85){ state.boostUntil=Math.max(state.boostUntil,Date.now())+5*60*1000; toast('🌟 Tunas Emas! Boost x2 selama 5 menit!'); }
-    else { state.gaiaSpores+=1; toast('🌟 Langka! +1 Spora Gaia!'); }
+    if(roll<0.5){ const amt=Math.max(50, perSec()*60*5); addBiomass(amt); toast(`🌟 Golden Sprout! +${fmt(amt)} 🌿`); }
+    else if(roll<0.85){ state.boostUntil=Math.max(state.boostUntil,Date.now())+5*60*1000; toast('🌟 Golden Sprout! x2 boost for 5 minutes!'); }
+    else { state.gaiaSpores+=1; toast('🌟 Rare! +1 Gaia Spore!'); }
     burstParticles('✨',14); sfx('stage');
     goldenEl.remove(); goldenEl=null; updateStats();
     if(currentTab==='gen'||currentTab==='boost') renderShop();
@@ -876,7 +919,7 @@ setInterval(()=>{
 function save(silent){
   state.lastSave=Date.now();
   localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-  if(!silent) toast('💾 Tersimpan');
+  if(!silent) toast('💾 Saved');
 }
 function load(){
   const raw=localStorage.getItem(SAVE_KEY); if(!raw) return false;
@@ -895,13 +938,14 @@ function applyOffline(){
   addBiomass(gain); state.claimedOffline=true;
   $('offlineGain').textContent='+'+fmt(gain)+' 🌿';
   const mins=Math.floor(elapsed/60), hrs=Math.floor(mins/60);
-  $('offlineTime').textContent = hrs>0?`Kamu pergi ${hrs} jam ${mins%60} menit`:`Kamu pergi ${mins} menit`;
+  $('offlineTime').textContent = hrs>0?`You were away ${hrs}h ${mins%60}m`:`You were away ${mins}m`;
   $('offlineModal').classList.add('show');
 }
 $('offlineOk').onclick=()=>$('offlineModal').classList.remove('show');
 $('saveBtn').onclick=()=>save(false);
-$('resetBtn').onclick=()=>{ if(confirm('Reset SEMUA progress termasuk Spora Gaia? Tidak bisa dibatalkan.')){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
-$('soundBtn').onclick=()=>{ state.soundOn=!state.soundOn; initAudio(); $('soundBtn').textContent=state.soundOn?'🔊 Suara':'🔇 Bisu'; if(state.soundOn) sfx('buy'); };
+$('resetBtn').onclick=()=>{ if(confirm('Reset ALL progress including Gaia Spores? This cannot be undone.')){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
+$('soundBtn').onclick=()=>{ state.soundOn=!state.soundOn; initAudio(); $('soundBtn').textContent=state.soundOn?'🔊 Sound':'🔇 Muted'; if(state.soundOn) sfx('buy'); };
+$('musicBtn').onclick=()=>{ state.musicOn=!state.musicOn; initAudio(); startMusic(); $('musicBtn').textContent=state.musicOn?'🎵 Music':'🎵 Music off'; };
 setInterval(()=>save(true),15000);
 window.addEventListener('beforeunload',()=>save(true));
 
@@ -909,10 +953,50 @@ window.addEventListener('beforeunload',()=>save(true));
 let toastTimer;
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),1600); }
 
-// ---------- STARS ----------
-(function(){ const c=$('stars'); for(let i=0;i<60;i++){ const s=document.createElement('div'); s.className='star';
+// ---------- STARS (varied sizes) ----------
+(function(){ const c=$('stars'); for(let i=0;i<95;i++){ const s=document.createElement('div'); s.className='star';
+  const sz=Math.random()<0.15?3:Math.random()<0.5?2:1;
+  s.style.width=sz+'px'; s.style.height=sz+'px';
   s.style.left=Math.random()*100+'%'; s.style.top=Math.random()*100+'%';
-  s.style.animationDelay=(Math.random()*3)+'s'; s.style.opacity=Math.random()*0.6+0.2; c.appendChild(s); } })();
+  s.style.animationDelay=(Math.random()*3)+'s'; s.style.animationDuration=(2+Math.random()*3)+'s';
+  s.style.opacity=Math.random()*0.6+0.2; c.appendChild(s); } })();
+
+// ---------- METEORS / SHOOTING STARS ----------
+function spawnMeteor(){
+  const big=Math.random()<0.18;
+  const m=document.createElement('div'); m.className='meteor'+(big?' big':'');
+  const W=window.innerWidth, H=window.innerHeight;
+  const startX=W*(0.25+Math.random()*0.7), startY=-30;
+  const len=H*(0.7+Math.random()*0.5);
+  const aDeg=110+Math.random()*25;            // arah jatuh: bawah-kiri
+  const a=aDeg*Math.PI/180, dx=Math.cos(a)*len, dy=Math.sin(a)*len;
+  const trail=aDeg+180;                        // ekor menunjuk berlawanan arah gerak
+  m.style.left=startX+'px'; m.style.top=startY+'px';
+  document.body.appendChild(m);
+  m.animate([
+    {transform:`translate(0,0) rotate(${trail}deg)`, opacity:0},
+    {opacity:1, offset:0.12},
+    {transform:`translate(${dx}px,${dy}px) rotate(${trail}deg)`, opacity:0}
+  ], {duration:(big?1500:950)+Math.random()*400, easing:'linear'});
+  setTimeout(()=>m.remove(), 2200);
+}
+function scheduleMeteors(){ setInterval(()=>{ if(document.hidden) return; if(Math.random()<0.6) spawnMeteor(); }, 3500); }
+
+// ---------- SATELLITE (drifts across) ----------
+function spawnSatellite(){
+  const s=document.createElement('div'); s.className='satellite'; s.textContent='🛰️';
+  const W=window.innerWidth;
+  s.style.top=(8+Math.random()*32)+'vh';
+  const fromLeft=Math.random()<0.5;
+  const sx=fromLeft?-50:W+50, ex=fromLeft?W+50:-50, rot=fromLeft?18:-18;
+  document.body.appendChild(s);
+  s.animate([
+    {transform:`translateX(${sx}px) rotate(${-rot}deg)`},
+    {transform:`translateX(${ex}px) rotate(${rot}deg)`}
+  ], {duration:15000+Math.random()*5000, easing:'linear'});
+  setTimeout(()=>s.remove(), 21000);
+}
+function scheduleSatellite(){ setInterval(()=>{ if(document.hidden) return; if(Math.random()<0.5) spawnSatellite(); }, 28000); }
 
 // ---------- SERVICE WORKER (PWA / offline) ----------
 if('serviceWorker' in navigator){
@@ -921,12 +1005,17 @@ if('serviceWorker' in navigator){
 
 // ---------- INIT ----------
 const hadSave=load();
-$('soundBtn').textContent = state.soundOn?'🔊 Suara':'🔇 Bisu';
+$('soundBtn').textContent = state.soundOn?'🔊 Sound':'🔇 Muted';
+$('musicBtn').textContent = state.musicOn?'🎵 Music':'🎵 Music off';
 if(hadSave) applyOffline();
-lastStageMin = currentStage().min; // jangan trigger stage-up saat load
+lastStageMin = currentStage().min; // don't trigger stage-up on load
 updateStats();
 renderShop();
 scheduleGolden();
+scheduleMeteors();
+scheduleSatellite();
+setTimeout(spawnMeteor, 1500);
+setTimeout(spawnSatellite, 4000);
 </script>
 </body>
 </html>

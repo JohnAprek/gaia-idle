@@ -1,5 +1,5 @@
 /* GAIA — service worker (offline cache) */
-const CACHE = 'gaia-v2';
+const CACHE = 'gaia-v3';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
