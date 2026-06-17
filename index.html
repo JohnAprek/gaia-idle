@@ -200,7 +200,7 @@
     <div class="biomass"><span id="biomass">0</span> <small>Biomassa 🌿</small></div>
     <div class="substats">
       <span><b id="perSec">0</b> /dtk</span>
-      <span class="gaia-badge">🌟 <b id="gaiaTop" style="color:var(--purple)">0</b> Gaia</span>
+      <span class="gaia-badge"><b id="gaiaTop" style="color:var(--purple)">0🌟</b></span>
       <span>x<b id="multTop">1.0</b> bonus</span>
     </div>
     <div class="stage-name" id="stageName">Planet Mati</div>
@@ -216,7 +216,7 @@
     <div class="tabs">
       <div class="tab active" data-tab="gen">🌱</div>
       <div class="tab" data-tab="upg">⚡</div>
-      <div class="tab" data-tab="prestige">🌟</div>
+      <div class="tab" data-tab="prestige">🌟<span class="dot" id="prestigeDot"></span></div>
       <div class="tab" data-tab="ach">🏆<span class="dot"></span></div>
       <div class="tab" data-tab="boost">💎<span class="dot" id="boostDot"></span></div>
     </div>
@@ -263,16 +263,26 @@
 
 // ---------- DATA ----------
 const GENERATORS = [
-  { id:'spora',  name:'Spora',   emoji:'🦠', baseCost:15,         rate:0.1,   desc:'Bibit kehidupan pertama' },
-  { id:'lumut',  name:'Lumut',   emoji:'🌿', baseCost:120,        rate:1,     desc:'Menyelimuti bebatuan' },
-  { id:'semak',  name:'Semak',   emoji:'🌳', baseCost:1300,       rate:8,     desc:'Akar mencengkeram tanah' },
-  { id:'pohon',  name:'Pohon',   emoji:'🌲', baseCost:14000,      rate:47,    desc:'Hutan mulai terbentuk' },
-  { id:'hutan',  name:'Hutan',   emoji:'🏞️', baseCost:160000,     rate:260,   desc:'Ekosistem rimbun' },
-  { id:'danau',  name:'Danau',   emoji:'💧', baseCost:1900000,    rate:1400,  desc:'Air kehidupan mengalir' },
-  { id:'satwa',  name:'Satwa',   emoji:'🦌', baseCost:25000000,   rate:7800,  desc:'Fauna berkembang' },
-  { id:'koloni', name:'Koloni',  emoji:'🏘️', baseCost:400000000,  rate:44000, desc:'Peradaban lahir' },
-  { id:'kota',   name:'Metropolis', emoji:'🌆', baseCost:6.5e9,   rate:260000,desc:'Kota raksasa membentang' },
-  { id:'orbit',  name:'Stasiun Orbit', emoji:'🛰️', baseCost:1e11, rate:1.6e6, desc:'Kehidupan menjangkau langit' },
+  { id:'spora',  name:'Spora',         emoji:'🦠', baseCost:15,      rate:0.1,    desc:'Bibit kehidupan pertama' },
+  { id:'lumut',  name:'Lumut',         emoji:'🌿', baseCost:120,     rate:1,      desc:'Menyelimuti bebatuan' },
+  { id:'semak',  name:'Semak',         emoji:'🌳', baseCost:1300,    rate:8,      desc:'Akar mencengkeram tanah' },
+  { id:'pohon',  name:'Pohon',         emoji:'🌲', baseCost:14000,   rate:47,     desc:'Hutan mulai terbentuk' },
+  { id:'hutan',  name:'Hutan',         emoji:'🏞️', baseCost:160000,  rate:260,    desc:'Ekosistem rimbun' },
+  { id:'danau',  name:'Danau',         emoji:'💧', baseCost:1900000, rate:1400,   desc:'Air kehidupan mengalir' },
+  { id:'satwa',  name:'Satwa',         emoji:'🦌', baseCost:25000000,rate:7800,   desc:'Fauna berkembang' },
+  { id:'koloni', name:'Koloni',        emoji:'🏘️', baseCost:4e8,     rate:44000,  desc:'Peradaban lahir' },
+  { id:'kota',   name:'Metropolis',    emoji:'🌆', baseCost:6.5e9,   rate:260000, desc:'Kota raksasa membentang' },
+  { id:'orbit',  name:'Stasiun Orbit', emoji:'🛰️', baseCost:1e11,    rate:1.6e6,  desc:'Kehidupan menjangkau langit' },
+  { id:'bulan',  name:'Koloni Bulan',  emoji:'🌙', baseCost:1.3e12,  rate:9e6,    desc:'Bulan ikut dihidupkan' },
+  { id:'mars',   name:'Terraform Mars',emoji:'🔴', baseCost:1.7e13,  rate:5e7,    desc:'Planet merah membiru' },
+  { id:'asteroid',name:'Sabuk Asteroid',emoji:'🪨', baseCost:2.2e14, rate:2.8e8,  desc:'Tambang kehidupan melayang' },
+  { id:'dyson',  name:'Dyson Swarm',   emoji:'🛸', baseCost:2.9e15,  rate:1.6e9,  desc:'Memanen energi bintang' },
+  { id:'mtbuatan',name:'Matahari Buatan',emoji:'🔆',baseCost:3.8e16, rate:9e9,    desc:'Menyalakan surya baru' },
+  { id:'warp',   name:'Gerbang Warp',  emoji:'🌐', baseCost:5e17,    rate:5e10,   desc:'Kehidupan melintas ruang' },
+  { id:'cincin', name:'Dunia Cincin',  emoji:'💍', baseCost:6.5e18,  rate:2.8e11, desc:'Habitat raksasa melingkar' },
+  { id:'nebula', name:'Nebula Hidup',  emoji:'🌌', baseCost:8.5e19,  rate:1.6e12, desc:'Awan kosmik bernyawa' },
+  { id:'kluster',name:'Kluster Galaksi',emoji:'🌠',baseCost:1.1e21,  rate:9e12,   desc:'Gugus bintang subur' },
+  { id:'jaring', name:'Jaring Kosmik', emoji:'🕸️', baseCost:1.5e22,  rate:5e13,   desc:'Kehidupan menjangkau kosmos' },
 ];
 
 const UPGRADES = [
@@ -295,6 +305,11 @@ const STAGES = [
   { min:25000000,  name:'Planet Hidup',    core:'#9be07b', mid:'#2e8b5f' },
   { min:800000000, name:'Peradaban Gaia',  core:'#e0d36b', mid:'#8b7a2e' },
   { min:5e10,      name:'Dunia Sempurna',  core:'#b98bff', mid:'#5b3a8b' },
+  { min:2e12,      name:'Sistem Bintang',  core:'#ffd866', mid:'#7a5b1e' },
+  { min:8e13,      name:'Galaksi Muda',    core:'#9be0ff', mid:'#2e5b8b' },
+  { min:3e15,      name:'Nebula Sadar',    core:'#ff9be0', mid:'#8b2e6b' },
+  { min:1e17,      name:'Jaring Kosmik',   core:'#c9a0ff', mid:'#4b2e8b' },
+  { min:5e18,      name:'Realitas Gaia',   core:'#a0ffe0', mid:'#2e8b7a' },
 ];
 
 const ACHIEVEMENTS = [
@@ -311,14 +326,26 @@ const ACHIEVEMENTS = [
   { id:'clicks100',emoji:'💪', name:'Rajin',            desc:'100 ketukan',         check:s=>s.clicks>=100 },
   { id:'boost1',   emoji:'🔥', name:'Akselerasi',       desc:'Aktifkan boost',      check:s=>s.boostUntil>0 },
   { id:'golden1',  emoji:'🌟', name:'Pemburu Emas',     desc:'Tangkap tunas emas',  check:s=>s.goldenCaught>=1 },
-  { id:'allgen',   emoji:'🌌', name:'Penguasa Semesta', desc:'Punya semua generator',check:s=>GENERATORS.every(g=>s.gens[g.id]>0) },
+  { id:'allgen',   emoji:'🌐', name:'Penguasa Kosmik',  desc:'Punya semua generator',check:s=>GENERATORS.every(g=>s.gens[g.id]>0) },
+  { id:'galaxy1',  emoji:'⭐', name:'Penempa Galaksi',  desc:'Tempa galaksi pertama',check:s=>s.galaxyCount>=1 },
+  { id:'bintang25',emoji:'✨', name:'Gugus Bintang',    desc:'Kumpulkan 25 Bintang', check:s=>s.bintang>=25 },
+  { id:'universe1',emoji:'🌀', name:'Pencipta Semesta', desc:'Ciptakan semesta pertama',check:s=>s.universeCount>=1 },
 ];
 
-const COST_GROWTH = 1.15;
-const SAVE_KEY = 'gaia_save_v2';
+const COST_GROWTH = 1.18;
+const SAVE_KEY = 'gaia_save_v3';
 const TICK_MS = 100;
-const GAIA_DIV = 100000;        // runEarned per spora (akar, model frontier)
-const GAIA_BONUS = 0.05;        // +5% per spora
+// Lapisan 1 — Planet (Spora Gaia 🌟): frontier dari biomassa/run
+const GAIA_DIV = 100000;        // runEarned per spora (akar)
+const GAIA_BONUS = 0.03;        // faktor = 1 + gaia*0.03
+// Lapisan 2 — Galaksi (Bintang ⭐): frontier dari Spora Gaia
+const GAL_REQ = 1000;           // gaia minimum untuk membuka lapisan Galaksi
+const BINTANG_DIV = 250;        // gaia per bintang (akar)
+const BINTANG_BONUS = 2;        // faktor = 1 + bintang*2
+// Lapisan 3 — Semesta (Singularitas 🌀): frontier dari Bintang
+const UNI_REQ = 300;            // bintang minimum untuk membuka lapisan Semesta
+const SING_DIV = 300;           // bintang per singularitas (akar)
+const SING_BONUS = 12;          // faktor = 1 + sing*12
 const ACH_BONUS = 0.01;         // +1% per achievement
 
 // ---------- STATE ----------
@@ -326,6 +353,8 @@ let state = {
   biomass: 0, runEarned: 0, lifetime: 0,
   gens: {}, upgrades: {}, achs: {},
   gaiaSpores: 0, prestigeCount: 0,
+  bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
+  singularitas: 0, universeCount: 0, universeUnlocked: false,
   clicks: 0, claimedOffline: false,
   soundOn: true, lastSave: Date.now(),
   boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
@@ -364,19 +393,26 @@ function buyQty(g){
   return buyMode;
 }
 
-function prestigeMult(){ return 1 + state.gaiaSpores * GAIA_BONUS; }
+// faktor bonus tiap lapisan (ADITIF → stabil, anti-runaway)
+function gaiaMult(){ return 1 + state.gaiaSpores * GAIA_BONUS; }
+function bintangMult(){ return 1 + state.bintang * BINTANG_BONUS; }
+function singMult(){ return 1 + state.singularitas * SING_BONUS; }
 function achMult(){ return 1 + Object.keys(state.achs).length * ACH_BONUS; }
 function upgAllMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='all'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
 function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
 function boostActive(){ return Date.now() < state.boostUntil; }
 function boostMult(){ return (boostActive() ? 2 : 1) * (state.adsRemoved ? 2 : 1); }
-function globalMult(){ return upgAllMult() * prestigeMult() * achMult() * boostMult(); }
+function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult(); }
 function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate); return t*globalMult(); }
 function clickPower(){ return 1 * upgClickMult() * globalMult(); }
 
-// Model "frontier": hanya dapat spora bila memecahkan rekor terjauh.
+// Model "frontier" tiap lapisan: hanya dapat mata uang bila memecahkan rekor.
 function potentialGaia(){ return Math.max(0, Math.floor(Math.sqrt(state.runEarned / GAIA_DIV)) - state.gaiaSpores); }
 function nextSporeReq(){ return Math.pow(state.gaiaSpores + 1, 2) * GAIA_DIV; }
+function potentialBintang(){ return Math.max(0, Math.floor(Math.sqrt(state.gaiaSpores / BINTANG_DIV)) - state.bintang); }
+function nextBintangReq(){ return Math.pow(state.bintang + 1, 2) * BINTANG_DIV; }   // dalam Gaia
+function potentialSing(){ return Math.max(0, Math.floor(Math.sqrt(state.bintang / SING_DIV)) - state.singularitas); }
+function nextSingReq(){ return Math.pow(state.singularitas + 1, 2) * SING_DIV; }     // dalam Bintang
 
 function currentStage(){ let s=STAGES[0]; for(const st of STAGES) if(state.runEarned>=st.min) s=st; return s; }
 
@@ -404,12 +440,40 @@ function doPrestige(){
   if (!confirm(`Lahirkan planet baru?\n\nKamu akan dapat ${gain} 🌟 Spora Gaia (bonus permanen +${(gain*GAIA_BONUS*100).toFixed(0)}%).\n\nBiomassa, generator & upgrade di-reset. Spora Gaia & pencapaian tetap.`)) return;
   state.gaiaSpores += gain;
   state.prestigeCount++;
-  // reset run
+  resetRun();
+  sfx('prestige'); burstParticles('🌟', 16);
+  toast(`🌟 +${gain} Spora Gaia! Planet baru lahir.`);
+  renderShop(); updateStats(); save(true);
+}
+// reset level "run" (biomassa, generator, upgrade) — dipakai semua lapisan
+function resetRun(){
   state.biomass = 0; state.runEarned = 0;
   GENERATORS.forEach(g=>state.gens[g.id]=0);
   state.upgrades = {};
-  sfx('prestige'); burstParticles('🌟', 16);
-  toast(`🌟 +${gain} Spora Gaia! Planet baru lahir.`);
+}
+function doGalaxy(){
+  const gain = potentialBintang();
+  if (gain < 1) return;
+  if (!confirm(`Tempa Galaksi baru?\n\nDapat ${gain} ⭐ Bintang (bonus permanen, faktor +${(gain*BINTANG_BONUS*100).toFixed(0)}%).\n\nSpora Gaia, biomassa, generator & upgrade DIRESET. Bintang & Singularitas tetap.`)) return;
+  state.bintang += gain;
+  state.galaxyCount++;
+  state.gaiaSpores = 0;
+  resetRun();
+  sfx('prestige'); burstParticles('⭐', 18);
+  toast(`⭐ +${gain} Bintang! Galaksi baru ditempa.`);
+  renderShop(); updateStats(); save(true);
+}
+function doUniverse(){
+  const gain = potentialSing();
+  if (gain < 1) return;
+  if (!confirm(`Ciptakan Semesta baru?\n\nDapat ${gain} 🌀 Singularitas (bonus permanen TERKUAT, faktor +${(gain*SING_BONUS*100).toFixed(0)}%).\n\nSEMUA direset kecuali Singularitas & pencapaian.`)) return;
+  state.singularitas += gain;
+  state.universeCount++;
+  state.bintang = 0;
+  state.gaiaSpores = 0;
+  resetRun();
+  sfx('prestige'); burstParticles('🌀', 20);
+  toast(`🌀 +${gain} Singularitas! Semesta baru tercipta.`);
   renderShop(); updateStats(); save(true);
 }
 
@@ -420,8 +484,17 @@ let lastStageMin = -1;
 function updateStats(){
   $('biomass').textContent = fmt(state.biomass);
   $('perSec').textContent = fmt(perSec());
-  $('gaiaTop').textContent = fmt(state.gaiaSpores);
-  $('multTop').textContent = globalMult().toFixed(globalMult()<10?2:1);
+  // mata uang prestige (tampil berlapis sesuai yang terbuka)
+  let cur = fmt(state.gaiaSpores)+'🌟';
+  if(state.bintang>0 || state.galaxyUnlocked) cur += ' '+fmt(state.bintang)+'⭐';
+  if(state.singularitas>0 || state.universeUnlocked) cur += ' '+fmt(state.singularitas)+'🌀';
+  $('gaiaTop').textContent = cur;
+  const gm = globalMult();
+  $('multTop').textContent = gm<1000 ? gm.toFixed(gm<10?2:1) : fmt(gm);
+  // buka lapisan saat ambang tercapai
+  if(!state.galaxyUnlocked && state.gaiaSpores>=GAL_REQ){ state.galaxyUnlocked=true; toast('⭐ Lapisan GALAKSI terbuka! Cek tab 🌟'); sfx('ach'); }
+  if(!state.universeUnlocked && state.bintang>=UNI_REQ){ state.universeUnlocked=true; toast('🌀 Lapisan SEMESTA terbuka! Cek tab 🌟'); sfx('ach'); }
+  const pd=$('prestigeDot'); if(pd) pd.style.display = (potentialGaia()>=1||potentialBintang()>=1||potentialSing()>=1)?'block':'none';
   const stage = currentStage();
   $('stageName').textContent = stage.name;
   const p = $('planet');
@@ -492,22 +565,7 @@ function renderShop(){
     });
     if(!any) shop.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">Belum ada upgrade.</p>';
   } else if (currentTab === 'prestige') {
-    const gain = potentialGaia();
-    const box = document.createElement('div');
-    box.className='prestige-box';
-    box.innerHTML = `
-      <div class="gaia-big">🌟 ${fmt(state.gaiaSpores)}</div>
-      <p>Spora Gaia · bonus permanen <b style="color:var(--purple)">+${(state.gaiaSpores*GAIA_BONUS*100).toFixed(0)}%</b></p>
-      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:12px 0">
-      <p>Lahirkan ulang planet untuk menukar progress jadi Spora Gaia permanen.</p>
-      <div class="gain">+${gain} 🌟</div>
-      <p style="font-size:11px">Spora berikutnya saat run mencapai <b style="color:var(--gold)">${fmt(nextSporeReq())}</b> 🌿.<br>Run ini: ${fmt(state.runEarned)} · rekor menentukan spora (lampaui untuk dapat lebih).</p>
-      <button class="prestige-btn" id="prestigeBtn" ${gain<1?'disabled':''}>
-        ${gain<1?'Belum cukup untuk prestige':`Lahirkan Planet Baru (+${gain})`}
-      </button>
-      <p style="margin-top:10px">Total prestige: ${state.prestigeCount}x</p>`;
-    shop.appendChild(box);
-    const pb = $('prestigeBtn'); if(pb) pb.onclick = doPrestige;
+    renderPrestige(shop);
   } else if (currentTab === 'ach') {
     const grid = document.createElement('div');
     grid.className='ach-grid';
@@ -527,6 +585,66 @@ function renderShop(){
     document.querySelector('[data-tab=ach]').classList.remove('has-news');
   } else if (currentTab === 'boost') {
     renderBoost(shop);
+  }
+}
+
+function prestigeCard({icon, color, title, amount, bonusPct, gain, gainIcon, reqLabel, reqVal, reqUnit, progLabel, progVal, btnLabel, onBuy, count, countLabel}){
+  const c=document.createElement('div'); c.className='boost-card';
+  c.style.borderColor = color+'55';
+  c.innerHTML = `
+    <div class="bt" style="color:${color}">${icon} ${title} — <span>${fmt(amount)}</span></div>
+    <div class="bd">Bonus permanen <b style="color:${color}">+${bonusPct}%</b> · ${countLabel}: ${count}x</div>
+    <div style="text-align:center;font-size:20px;font-weight:800;color:var(--gold);margin:6px 0">+${fmt(gain)} ${gainIcon}</div>
+    <div class="bd" style="text-align:center">${reqLabel} <b style="color:var(--gold)">${fmt(reqVal)}</b> ${reqUnit}<br>${progLabel}: ${fmt(progVal)}</div>
+    <button class="prestige-btn" ${gain<1?'disabled':''}>${gain<1?'Belum cukup':btnLabel+' (+'+fmt(gain)+')'}</button>`;
+  c.querySelector('button').onclick = ()=>{ if(gain>=1) onBuy(); };
+  return c;
+}
+function lockedCard(icon, title, reqText){
+  const c=document.createElement('div'); c.className='boost-card'; c.style.opacity='0.6';
+  c.innerHTML=`<div class="bt">🔒 ${icon} ${title}</div><div class="bd">${reqText}</div>`;
+  return c;
+}
+function renderPrestige(shop){
+  // header ringkas
+  const head=document.createElement('p');
+  head.style.cssText='text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px';
+  head.innerHTML=`🌟 <b style="color:var(--purple)">${fmt(state.gaiaSpores)}</b> Gaia · ⭐ <b style="color:var(--gold)">${fmt(state.bintang)}</b> Bintang · 🌀 <b style="color:#a0ffe0">${fmt(state.singularitas)}</b> Sing`;
+  shop.appendChild(head);
+
+  // Lapisan 1 — Planet
+  shop.appendChild(prestigeCard({
+    icon:'🌟', color:'#b98bff', title:'Planet', amount:state.gaiaSpores,
+    bonusPct:(state.gaiaSpores*GAIA_BONUS*100).toFixed(0), gain:potentialGaia(), gainIcon:'🌟',
+    reqLabel:'Spora berikutnya saat run capai', reqVal:nextSporeReq(), reqUnit:'🌿',
+    progLabel:'Run ini', progVal:state.runEarned,
+    btnLabel:'Lahirkan Planet', onBuy:doPrestige, count:state.prestigeCount, countLabel:'Total planet'
+  }));
+
+  // Lapisan 2 — Galaksi
+  if(state.galaxyUnlocked || state.bintang>0){
+    shop.appendChild(prestigeCard({
+      icon:'⭐', color:'#ffd866', title:'Galaksi', amount:state.bintang,
+      bonusPct:(state.bintang*BINTANG_BONUS*100).toFixed(0), gain:potentialBintang(), gainIcon:'⭐',
+      reqLabel:'Bintang berikutnya saat Gaia capai', reqVal:nextBintangReq(), reqUnit:'🌟',
+      progLabel:'Gaia sekarang', progVal:state.gaiaSpores,
+      btnLabel:'Tempa Galaksi', onBuy:doGalaxy, count:state.galaxyCount, countLabel:'Total galaksi'
+    }));
+  } else {
+    shop.appendChild(lockedCard('⭐','Galaksi (lapisan 2)', `Terbuka saat punya <b style="color:var(--gold)">${GAL_REQ}</b> Spora Gaia. Sekarang: ${fmt(state.gaiaSpores)} 🌟`));
+  }
+
+  // Lapisan 3 — Semesta
+  if(state.universeUnlocked || state.singularitas>0){
+    shop.appendChild(prestigeCard({
+      icon:'🌀', color:'#a0ffe0', title:'Semesta', amount:state.singularitas,
+      bonusPct:(state.singularitas*SING_BONUS*100).toFixed(0), gain:potentialSing(), gainIcon:'🌀',
+      reqLabel:'Singularitas berikutnya saat Bintang capai', reqVal:nextSingReq(), reqUnit:'⭐',
+      progLabel:'Bintang sekarang', progVal:state.bintang,
+      btnLabel:'Ciptakan Semesta', onBuy:doUniverse, count:state.universeCount, countLabel:'Total semesta'
+    }));
+  } else if(state.galaxyUnlocked || state.bintang>0){
+    shop.appendChild(lockedCard('🌀','Semesta (lapisan 3)', `Terbuka saat punya <b style="color:var(--gold)">${UNI_REQ}</b> Bintang. Sekarang: ${fmt(state.bintang)} ⭐`));
   }
 }
 
@@ -771,7 +889,7 @@ function load(){
 }
 function applyOffline(){
   const now=Date.now();
-  const elapsed=Math.min((now-state.lastSave)/1000, 60*60*8);
+  const elapsed=Math.min((now-state.lastSave)/1000, 60*60*10);
   if(elapsed<5) return;
   const gain=perSec()*elapsed; if(gain<=0) return;
   addBiomass(gain); state.claimedOffline=true;
