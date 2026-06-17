@@ -499,7 +499,12 @@ function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMu
 function managerLevel(id){ return state.managers[id]||0; }
 function managerMult(id){ const l=managerLevel(id); return l>0 ? 1+l : 1; }
 function managerCost(g){ return Math.floor(g.baseCost * 40 * Math.pow(7, managerLevel(g.id))); }
-function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate*managerMult(g.id)); return t*globalMult(); }
+// Milestones: owning more of a generator doubles its output at set thresholds (Idle Planet Miner style)
+const MILES=[10,25,50,100,150,200,300,400,500,750,1000];
+function milestoneCount(n){ let c=0; for(const m of MILES){ if(n>=m) c++; } if(n>1000) c+=Math.floor((n-1000)/500); return c; }
+function milestoneMult(id){ return Math.pow(2, milestoneCount(state.gens[id]||0)); }
+function nextMilestone(n){ for(const m of MILES){ if(n<m) return m; } return 1000+Math.ceil((Math.max(n,1000)-999)/500)*500; }
+function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate*managerMult(g.id)*milestoneMult(g.id)); return t*globalMult(); }
 function clickPower(){ return 1 * upgClickMult() * globalMult(); }
 
 // Model "frontier" tiap lapisan: hanya dapat mata uang bila memecahkan rekor.
@@ -520,8 +525,11 @@ function buyGen(g){
   const cost = bulkCost(g, qty);
   if (qty<1 || state.biomass < cost) return;
   state.biomass -= cost;
+  const before = milestoneCount(state.gens[g.id]);
   state.gens[g.id] += qty;
+  const after = milestoneCount(state.gens[g.id]);
   sfx('buy');
+  if (after > before){ toast(`${g.emoji} ${g.name} ×2! (${state.gens[g.id]} owned)`); sfx('ach'); burstParticles('⭐', 8); }
   renderShop(); updateStats();
 }
 function buyUpgrade(u){
@@ -653,11 +661,11 @@ function renderShop(){
         <div class="emoji">${g.emoji}</div>
         <div class="info">
           <div class="name">${g.name} ${buyMode!==1?`<span style="color:var(--accent)">x${fmt(qty)}</span>`:''}</div>
-          <div class="desc">${g.desc} · +${fmt(g.rate*managerMult(g.id)*globalMult())}/sec ea${managerLevel(g.id)>0?` · 👷×${managerMult(g.id)}`:''}</div>
+          <div class="desc">${g.desc} · +${fmt(g.rate*managerMult(g.id)*milestoneMult(g.id)*globalMult())}/sec ea${managerLevel(g.id)>0?` · 👷×${managerMult(g.id)}`:''}${milestoneMult(g.id)>1?` · ★×${milestoneMult(g.id)}`:''}</div>
         </div>
         <div class="right">
           <div class="cost ${afford?'':'cant'}">${fmt(cost)} 🌿</div>
-          <div class="owned">owned: ${state.gens[g.id]}</div>
+          <div class="owned">owned: ${state.gens[g.id]} · ★@${nextMilestone(state.gens[g.id])}</div>
         </div>`;
       el.onclick = ()=>buyGen(g);
       shop.appendChild(el);

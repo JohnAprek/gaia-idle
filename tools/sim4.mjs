@@ -19,6 +19,8 @@ const UPS=[{cost:120,t:'c',m:2},{cost:6000,t:'c',m:3},{cost:9e5,t:'c',m:4},
   {cost:1.8e8,t:'a',m:3},{cost:1.2e10,t:'a',m:3}];
 const G=1.18, GAIA_DIV=1e5, GAIA_B=0.05, GAL_REQ=250, BIN_DIV=250, BIN_B=2, UNI_REQ=300, SING_DIV=300, SING_B=12;
 const NG=GENERATORS.length;
+const MILES=[10,25,50,100,150,200,300,400,500,750,1000];
+function mileCount(n){ let c=0; for(const m of MILES){ if(n>=m) c++; } if(n>1000) c+=Math.floor((n-1000)/500); return c; }
 
 function fmt(n){ if(!isFinite(n))return'∞'; if(n<1000)return n.toFixed(n<10&&n%1?1:0);
   const u=['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc']; let t=Math.floor(Math.log10(n)/3);
@@ -28,6 +30,7 @@ function dur(s){ if(s<90)return s.toFixed(0)+'d'; const m=s/60; if(m<90)return m
 
 function simulate(cps, maxDays, log){
   const owned=new Array(NG).fill(0); let ups=new Array(UPS.length).fill(false);
+  const mgr=new Array(NG).fill(0);
   let biomass=0, run=0, bestRun=0, gaia=0, bintang=0, sing=0;
   let t=0; const maxT=maxDays*86400;
   const M={}; let planets=0, galaxies=0, universes=0;
@@ -36,13 +39,17 @@ function simulate(cps, maxDays, log){
   const allMult=()=>{ let m=1; for(let i=0;i<UPS.length;i++) if(UPS[i].t==='a'&&ups[i])m*=UPS[i].m;
     return m*(1+gaia*GAIA_B)*(1+bintang*BIN_B)*(1+sing*SING_B); };
   const clickM=m=>{ let k=1; for(let i=0;i<UPS.length;i++) if(UPS[i].t==='c'&&ups[i])k*=UPS[i].m; return k*m; };
-  const psBase=()=>{ let s=0; for(let i=0;i<NG;i++) s+=owned[i]*GENERATORS[i].rate; return s; };
+  const effRate=i=>GENERATORS[i].rate*Math.pow(2,mileCount(owned[i]))*(1+mgr[i]); // milestone + manager
+  const psBase=()=>{ let s=0; for(let i=0;i<NG;i++) s+=owned[i]*effRate(i); return s; };
   const cost=i=>GENERATORS[i].baseCost*G**owned[i];
+  const mgrCost=i=>GENERATORS[i].baseCost*40*Math.pow(7,mgr[i]);
 
   function buyAll(){
     for(let i=0;i<UPS.length;i++) if(!ups[i]&&biomass>=UPS[i].cost){ups[i]=true;biomass-=UPS[i].cost;}
+    for(let i=0;i<NG;i++){ if(owned[i]>=10&&mgr[i]<1&&biomass>=mgrCost(i)){biomass-=mgrCost(i);mgr[i]=1;}
+      else if(owned[i]>=50&&mgr[i]<2&&biomass>=mgrCost(i)){biomass-=mgrCost(i);mgr[i]=2;} }
     for(let it=0;it<60;it++){ const m=allMult(); let best=-1,pb=Infinity;
-      for(let i=0;i<NG;i++){ const c=cost(i); if(c>biomass)continue; const p=c/(GENERATORS[i].rate*m); if(p<pb){pb=p;best=i;} }
+      for(let i=0;i<NG;i++){ const c=cost(i); if(c>biomass)continue; const p=c/(effRate(i)*m); if(p<pb){pb=p;best=i;} }
       if(best<0)break; const base=GENERATORS[best].baseCost*G**owned[best];
       let q=Math.floor(Math.log((biomass*(G-1))/base+1)/Math.log(G)); if(q<1)q=1; q=Math.min(q,25);
       const tc=base*(G**q-1)/(G-1); if(tc>biomass){biomass-=base;owned[best]++;} else {biomass-=tc;owned[best]+=q;}
@@ -60,13 +67,13 @@ function simulate(cps, maxDays, log){
     // prestige (atas->bawah), heuristik +50%
     if(bintang>=UNI_REQ){ const g=Math.floor(Math.sqrt(bintang/SING_DIV))-sing;
       if(g>=Math.max(1,Math.ceil(sing*0.5))){ sing+=g;universes++; if(!M.uni1)M.uni1=t;
-        bintang=0;gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);continue; } }
+        bintang=0;gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0);continue; } }
     if(gaia>=BIN_DIV){ const g=Math.floor(Math.sqrt(gaia/BIN_DIV))-bintang;   // bisa galaxy sejak gaia>=250
       if(g>=Math.max(1,Math.ceil(bintang*0.5))){ bintang+=g;galaxies++; if(!M.gal1)M.gal1=t;
-        gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);continue; } }
+        gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0);continue; } }
     { const g=Math.floor(Math.sqrt(bestRun/GAIA_DIV))-gaia;
       if(g>=Math.max(1,Math.ceil(gaia*0.5))){ gaia+=g;planets++; if(!M.planet1)M.planet1=t;
-        run=0;biomass=0;owned.fill(0);ups.fill(false);continue; } }
+        run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0);continue; } }
   }
   return { t, gaia, bintang, sing, planets, galaxies, universes, M, genUnlock, maxBiomass:bestRun };
 }
