@@ -127,6 +127,36 @@
   .flora span { position:absolute; font-size:13px; transform:translate(-50%,-50%);
     filter:drop-shadow(0 1px 1px rgba(0,0,0,0.55)); animation: floraPop 0.45s ease-out; }
   @keyframes floraPop { 0%{ transform:translate(-50%,-50%) scale(0);} 60%{ transform:translate(-50%,-50%) scale(1.35);} 100%{ transform:translate(-50%,-50%) scale(1);} }
+
+  /* per-planet surface effect overlay (each planet animates differently) */
+  .planet-fx { position:absolute; inset:0; border-radius:50%; z-index:1; pointer-events:none;
+    background-size:220% 100%; background-repeat:no-repeat; }
+  @keyframes fxSpin  { to { transform: rotate(360deg); } }
+  @keyframes fxPulse { 0%,100%{ opacity:0.12; } 50%{ opacity:0.5; } }
+  @keyframes fxSweep { 0%{ background-position:-120% 0; } 100%{ background-position:240% 0; } }
+  .fx-clouds  { mix-blend-mode:screen; opacity:0.35; animation:fxSpin 55s linear infinite;
+    background:radial-gradient(circle at 32% 38%,rgba(255,255,255,.6) 0 7%,transparent 11%),radial-gradient(circle at 68% 60%,rgba(255,255,255,.5) 0 9%,transparent 13%),radial-gradient(circle at 55% 25%,rgba(255,255,255,.4) 0 6%,transparent 10%); }
+  .fx-water   { mix-blend-mode:screen; opacity:0.5; animation:fxSweep 4.5s linear infinite;
+    background:linear-gradient(115deg,transparent 35%,rgba(180,240,255,.85) 50%,transparent 65%); }
+  .fx-lush    { mix-blend-mode:screen; animation:fxPulse 5s ease-in-out infinite;
+    background:radial-gradient(circle at 50% 55%,rgba(140,255,150,.7),transparent 65%); }
+  .fx-lava    { mix-blend-mode:screen; animation:fxPulse 2.2s ease-in-out infinite;
+    background:radial-gradient(circle at 40% 60%,rgba(255,140,40,.9) 0 18%,transparent 30%),radial-gradient(circle at 68% 40%,rgba(255,90,20,.8) 0 14%,transparent 26%); }
+  .fx-ice     { mix-blend-mode:screen; opacity:0.65; animation:fxSweep 6s linear infinite;
+    background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.95) 50%,transparent 60%); }
+  .fx-aurora  { mix-blend-mode:screen; opacity:0.55; animation:fxSweep 7s linear infinite;
+    background:linear-gradient(120deg,transparent 25%,rgba(120,255,180,.7) 45%,rgba(255,220,120,.7) 60%,transparent 80%); }
+  .fx-nebula  { mix-blend-mode:screen; opacity:0.5; animation:fxSpin 30s linear infinite;
+    background:radial-gradient(circle at 38% 42%,rgba(200,130,255,.8) 0 20%,transparent 38%),radial-gradient(circle at 65% 62%,rgba(150,90,230,.7) 0 16%,transparent 32%); }
+  .fx-volcano { mix-blend-mode:overlay; animation:fxPulse 1.8s ease-in-out infinite;
+    background:radial-gradient(circle at 50% 65%,rgba(255,60,40,.95) 0 22%,rgba(80,0,0,.6) 45%,transparent 70%); }
+  .fx-cosmic  { mix-blend-mode:screen; opacity:0.6; animation:fxSpin 40s linear infinite;
+    background:radial-gradient(circle at 30% 30%,#fff 0 1.5%,transparent 3%),radial-gradient(circle at 70% 45%,#ffd0ff 0 1.5%,transparent 3%),radial-gradient(circle at 50% 70%,#fff 0 1.5%,transparent 3%),radial-gradient(circle at 80% 75%,#d0d0ff 0 1.5%,transparent 3%); }
+  .fx-divine  { mix-blend-mode:screen; opacity:0.55; animation:fxSpin 22s linear infinite;
+    background:repeating-conic-gradient(from 0deg, rgba(160,255,224,.55) 0deg 10deg, transparent 10deg 24deg); }
+
+  .ambient { position:absolute; font-size:14px; pointer-events:none; z-index:3;
+    filter:drop-shadow(0 0 3px rgba(255,255,255,0.4)); }
   .planet.bump { animation: bump 0.5s ease; }
   @keyframes bump { 0%{transform:scale(1);} 40%{transform:scale(1.12);} 100%{transform:scale(1);} }
   .planet-hint { color: var(--muted); font-size: 11px; margin-top: 10px; }
@@ -292,7 +322,7 @@
   <div class="planet-area">
     <div class="aura"></div>
     <div class="orbit"><span class="moon">🌑</span></div>
-    <button class="planet" id="planet"><span class="terrain"></span><span class="flora" id="flora"></span></button>
+    <button class="planet" id="planet"><span class="terrain"></span><span class="planet-fx" id="planetFx"></span><span class="flora" id="flora"></span></button>
     <div class="planet-hint">Tap the planet to grow life</div>
 
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
@@ -409,16 +439,16 @@ const STAGES = [
 // Planet journey — explore a sequence of worlds (Idle Planet Miner style).
 // Travel unlocks at a lifetime-biomass goal; each planet grants a permanent x1.4 production.
 const PLANETS = [
-  { name:'Terra Prime', emoji:'🌍', core:'#7be08a', mid:'#2e8b4f', goal:0 },
-  { name:'Aquaria',     emoji:'🌊', core:'#6bd6e0', mid:'#2e6b8b', goal:5e3 },
-  { name:'Verdantia',   emoji:'🌿', core:'#9be07b', mid:'#2e8b5f', goal:5e5 },
-  { name:'Ember',       emoji:'🔥', core:'#ff9b6b', mid:'#8b3a2e', goal:5e7 },
-  { name:'Glacius',     emoji:'🧊', core:'#bfe9ff', mid:'#2e5b8b', goal:5e9 },
-  { name:'Auroria',     emoji:'🟡', core:'#ffd866', mid:'#8b7a2e', goal:5e11 },
-  { name:'Violetia',    emoji:'🟣', core:'#c9a0ff', mid:'#4b2e8b', goal:5e13 },
-  { name:'Cinderon',    emoji:'🔴', core:'#ff7b8a', mid:'#8b2e3a', goal:5e15 },
-  { name:'Nebulon',     emoji:'🌌', core:'#ff9be0', mid:'#8b2e6b', goal:5e17 },
-  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:5e19 },
+  { name:'Terra Prime', emoji:'🌍', core:'#7be08a', mid:'#2e8b4f', goal:0,    fx:'clouds',  amb:'☁️', dir:'float' },
+  { name:'Aquaria',     emoji:'🌊', core:'#6bd6e0', mid:'#2e6b8b', goal:5e3,  fx:'water',   amb:'💧', dir:'up' },
+  { name:'Verdantia',   emoji:'🌿', core:'#9be07b', mid:'#2e8b5f', goal:5e5,  fx:'lush',    amb:'🍃', dir:'up' },
+  { name:'Ember',       emoji:'🔥', core:'#ff9b6b', mid:'#8b3a2e', goal:5e7,  fx:'lava',    amb:'🔥', dir:'up' },
+  { name:'Glacius',     emoji:'🧊', core:'#bfe9ff', mid:'#2e5b8b', goal:5e9,  fx:'ice',     amb:'❄️', dir:'down' },
+  { name:'Auroria',     emoji:'🟡', core:'#ffd866', mid:'#8b7a2e', goal:5e11, fx:'aurora',  amb:'✨', dir:'float' },
+  { name:'Violetia',    emoji:'🟣', core:'#c9a0ff', mid:'#4b2e8b', goal:5e13, fx:'nebula',  amb:'💜', dir:'float' },
+  { name:'Cinderon',    emoji:'🔴', core:'#ff7b8a', mid:'#8b2e3a', goal:5e15, fx:'volcano', amb:'💨', dir:'up' },
+  { name:'Nebulon',     emoji:'🌌', core:'#ff9be0', mid:'#8b2e6b', goal:5e17, fx:'cosmic',  amb:'⭐', dir:'float' },
+  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:5e19, fx:'divine',  amb:'🌟', dir:'float' },
 ];
 
 const ACHIEVEMENTS = [
@@ -640,6 +670,7 @@ function updateStats(){
   p.style.background = `radial-gradient(circle at 35% 30%, ${pl.core}, ${pl.mid} 70%, #1a1c28)`;
   const glow = Math.min(45, 8 + Math.log10(state.runEarned+1)*4.5);
   p.style.boxShadow = `0 0 ${glow}px ${glow/2}px ${pl.core}66`;
+  const fx=$('planetFx'); if(fx){ const cls='planet-fx fx-'+(pl.fx||'clouds'); if(fx.className!==cls) fx.className=cls; }
   // deteksi naik stage
   if (lastStageMin !== -1 && stage.min > lastStageMin) {
     onStageUp(stage);
@@ -1217,6 +1248,27 @@ function spawnMeteor(){
 }
 function scheduleMeteors(){ setInterval(()=>{ if(document.hidden) return; if(Math.random()<0.6) spawnMeteor(); }, 3500); }
 
+// ---------- PER-PLANET AMBIENT PARTICLES ----------
+function spawnAmbient(){
+  if(document.hidden) return;
+  const pl=PLANETS[state.planetIndex]||PLANETS[0]; if(!pl.amb) return;
+  const area=document.querySelector('.planet-area'); if(!area) return;
+  const rect=area.getBoundingClientRect(); const cx=rect.width/2, cy=rect.height/2;
+  const s=document.createElement('span'); s.className='ambient'; s.textContent=pl.amb;
+  let x=cx+(Math.random()*2-1)*70, y=cy+(Math.random()*2-1)*70, dx=0, dy=0;
+  if(pl.dir==='up'){ y=cy+95; x=cx+(Math.random()*2-1)*80; dy=-120; dx=(Math.random()*2-1)*25; }
+  else if(pl.dir==='down'){ y=cy-95; x=cx+(Math.random()*2-1)*80; dy=120; dx=(Math.random()*2-1)*25; }
+  else { dx=(Math.random()*2-1)*35; dy=(Math.random()*2-1)*35; }
+  s.style.left=x+'px'; s.style.top=y+'px';
+  area.appendChild(s);
+  s.animate([{transform:'translate(0,0) scale(0.6)',opacity:0},
+             {opacity:0.9,offset:0.2},
+             {transform:`translate(${dx}px,${dy}px) scale(1)`,opacity:0}],
+            {duration:2200+Math.random()*800,easing:'ease-out'});
+  setTimeout(()=>s.remove(),3200);
+}
+function scheduleAmbient(){ setInterval(spawnAmbient, 1400); }
+
 // ---------- SATELLITE (drifts across) ----------
 function spawnSatellite(){
   const s=document.createElement('div'); s.className='satellite'; s.textContent='🛰️';
@@ -1249,6 +1301,7 @@ renderShop();
 scheduleGolden();
 scheduleMeteors();
 scheduleSatellite();
+scheduleAmbient();
 setTimeout(spawnMeteor, 1500);
 setTimeout(spawnSatellite, 4000);
 </script>
