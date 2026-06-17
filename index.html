@@ -121,6 +121,12 @@
     0%   { transform: rotate(0deg)   scale(1); }
     50%  { transform: rotate(180deg) scale(1.05); }
     100% { transform: rotate(360deg) scale(1); } }
+
+  /* life growing on the planet surface (one icon per generator type owned) */
+  .flora { position:absolute; inset:0; z-index:1; pointer-events:none; }
+  .flora span { position:absolute; font-size:13px; transform:translate(-50%,-50%);
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,0.55)); animation: floraPop 0.45s ease-out; }
+  @keyframes floraPop { 0%{ transform:translate(-50%,-50%) scale(0);} 60%{ transform:translate(-50%,-50%) scale(1.35);} 100%{ transform:translate(-50%,-50%) scale(1);} }
   .planet.bump { animation: bump 0.5s ease; }
   @keyframes bump { 0%{transform:scale(1);} 40%{transform:scale(1.12);} 100%{transform:scale(1);} }
   .planet-hint { color: var(--muted); font-size: 11px; margin-top: 10px; }
@@ -284,7 +290,7 @@
   <div class="planet-area">
     <div class="aura"></div>
     <div class="orbit"><span class="moon">🌑</span></div>
-    <button class="planet" id="planet"><span class="terrain"></span></button>
+    <button class="planet" id="planet"><span class="terrain"></span><span class="flora" id="flora"></span></button>
     <div class="planet-hint">Tap the planet to grow life</div>
 
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
@@ -301,6 +307,7 @@
     <div class="tabs">
       <div class="tab" data-tab="gen">🌱</div>
       <div class="tab" data-tab="upg">⚡</div>
+      <div class="tab" data-tab="mgr">👷</div>
       <div class="tab" data-tab="prestige">🌟<span class="dot" id="prestigeDot"></span></div>
       <div class="tab" data-tab="ach">🏆<span class="dot"></span></div>
       <div class="tab" data-tab="boost">💎<span class="dot" id="boostDot"></span></div>
@@ -414,6 +421,7 @@ const ACHIEVEMENTS = [
   { id:'galaxy1',  emoji:'⭐', name:'Galaxy Forger',    desc:'Forge first galaxy',   check:s=>s.galaxyCount>=1 },
   { id:'bintang25',emoji:'✨', name:'Star Cluster',     desc:'Collect 25 Stars',     check:s=>s.bintang>=25 },
   { id:'universe1',emoji:'🌀', name:'Universe Maker',   desc:'Create first universe',check:s=>s.universeCount>=1 },
+  { id:'mgr1',     emoji:'👷', name:'First Hire',       desc:'Hire a manager',       check:s=>Object.keys(s.managers||{}).length>=1 },
 ];
 
 const COST_GROWTH = 1.18;
@@ -435,7 +443,7 @@ const ACH_BONUS = 0.01;         // +1% per achievement
 // ---------- STATE ----------
 let state = {
   biomass: 0, runEarned: 0, lifetime: 0,
-  gens: {}, upgrades: {}, achs: {},
+  gens: {}, upgrades: {}, achs: {}, managers: {},
   gaiaSpores: 0, prestigeCount: 0,
   bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
   singularitas: 0, universeCount: 0, universeUnlocked: false,
@@ -487,7 +495,11 @@ function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&sta
 function boostActive(){ return Date.now() < state.boostUntil; }
 function boostMult(){ return (boostActive() ? 2 : 1) * (state.adsRemoved ? 2 : 1); }
 function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult(); }
-function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate); return t*globalMult(); }
+// Managers: per-generator multiplier with upgradeable levels (Lv1 ×2, Lv2 ×3, ...)
+function managerLevel(id){ return state.managers[id]||0; }
+function managerMult(id){ const l=managerLevel(id); return l>0 ? 1+l : 1; }
+function managerCost(g){ return Math.floor(g.baseCost * 40 * Math.pow(7, managerLevel(g.id))); }
+function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate*managerMult(g.id)); return t*globalMult(); }
 function clickPower(){ return 1 * upgClickMult() * globalMult(); }
 
 // Model "frontier" tiap lapisan: hanya dapat mata uang bila memecahkan rekor.
@@ -534,6 +546,7 @@ function resetRun(){
   state.biomass = 0; state.runEarned = 0;
   GENERATORS.forEach(g=>state.gens[g.id]=0);
   state.upgrades = {};
+  state.managers = {};
 }
 function doGalaxy(){
   const gain = potentialBintang();
@@ -591,6 +604,7 @@ function updateStats(){
   }
   lastStageMin = stage.min;
   updateBoostUI();
+  updateFlora();
   // tab achievement news
   checkAchievements();
 }
@@ -603,6 +617,22 @@ function updateBoostUI(){
   else info.style.display='none';
   $('boostDot').style.display = (Date.now()>=state.adCooldownUntil) ? 'block':'none';
   const cd=$('boostCountdown'); if(cd) cd.textContent=boostRemainStr();
+}
+
+// ---------- FLORA (life icons on the planet surface) ----------
+const FLORA_SLOTS=(function(){ const s=[]; for(let i=0;i<20;i++){
+  const r=18+(i/20)*26, a=i*137.5*Math.PI/180;       // golden-angle spiral, kept inside the disc
+  s.push({x:50+r*Math.cos(a), y:54+r*Math.sin(a)}); } return s; })();
+let lastFloraKey='';
+function updateFlora(){
+  const owned=GENERATORS.filter(g=>state.gens[g.id]>0);
+  const key=owned.map(g=>g.id).join(',');
+  if(key===lastFloraKey) return;                       // only rebuild when the set changes
+  lastFloraKey=key;
+  const f=$('flora'); if(!f) return; f.innerHTML='';
+  owned.forEach((g,i)=>{ if(i>=FLORA_SLOTS.length) return;
+    const m=document.createElement('span'); m.textContent=g.emoji;
+    m.style.left=FLORA_SLOTS[i].x+'%'; m.style.top=FLORA_SLOTS[i].y+'%'; f.appendChild(m); });
 }
 
 function renderShop(){
@@ -623,7 +653,7 @@ function renderShop(){
         <div class="emoji">${g.emoji}</div>
         <div class="info">
           <div class="name">${g.name} ${buyMode!==1?`<span style="color:var(--accent)">x${fmt(qty)}</span>`:''}</div>
-          <div class="desc">${g.desc} · +${fmt(g.rate*globalMult())}/sec ea</div>
+          <div class="desc">${g.desc} · +${fmt(g.rate*managerMult(g.id)*globalMult())}/sec ea${managerLevel(g.id)>0?` · 👷×${managerMult(g.id)}`:''}</div>
         </div>
         <div class="right">
           <div class="cost ${afford?'':'cant'}">${fmt(cost)} 🌿</div>
@@ -667,9 +697,42 @@ function renderShop(){
     head.innerHTML=`Achievements: <b style="color:var(--gold)">${cnt}/${ACHIEVEMENTS.length}</b> · bonus +${cnt}%`;
     shop.insertBefore(head, grid);
     document.querySelector('[data-tab=ach]').classList.remove('has-news');
+  } else if (currentTab === 'mgr') {
+    renderManagers(shop);
   } else if (currentTab === 'boost') {
     renderBoost(shop);
   }
+}
+
+function renderManagers(shop){
+  let any=false;
+  GENERATORS.forEach(g=>{
+    if(state.gens[g.id]<=0) return;          // only generators you own
+    any=true;
+    const lvl=managerLevel(g.id), cost=managerCost(g), afford=state.biomass>=cost;
+    const cur=managerMult(g.id), next=1+(lvl+1);
+    const el=document.createElement('div');
+    el.className='item'+(afford?' affordable':'');
+    el.innerHTML=`
+      <div class="emoji">${g.emoji}</div>
+      <div class="info">
+        <div class="name">${g.name} ${lvl>0?`<span style="color:var(--accent)">Mgr Lv${lvl} ×${cur}</span>`:''}</div>
+        <div class="desc">${lvl>0?`Upgrade manager → ×${next} production`:'Hire manager → ×2 production'}</div>
+      </div>
+      <div class="right"><div class="cost ${afford?'':'cant'}">${fmt(cost)} 🌿</div>
+        <div class="owned">${lvl>0?'Lv'+lvl:'not hired'}</div></div>`;
+    el.onclick=()=>buyManager(g);
+    shop.appendChild(el);
+  });
+  if(!any) shop.innerHTML='<p style="text-align:center;color:var(--muted);padding:20px">Own a generator first to hire its manager.</p>';
+}
+function buyManager(g){
+  const cost=managerCost(g);
+  if(state.biomass<cost) return;
+  state.biomass-=cost;
+  state.managers[g.id]=managerLevel(g.id)+1;
+  sfx('upg'); toast(`👷 ${g.name} manager ×${managerMult(g.id)}!`);
+  renderShop(); updateStats();
 }
 
 function prestigeCard({icon, color, title, amount, bonusPct, gain, gainIcon, reqLabel, reqVal, reqUnit, progLabel, progVal, btnLabel, onBuy, count, countLabel}){
@@ -887,7 +950,7 @@ function burstParticles(emoji, count){
 
 // ---------- TABS / SLIDE-UP MENU ----------
 let sheetOpen=false;
-const TAB_TITLES={gen:'Generators', upg:'Upgrades', prestige:'Prestige', ach:'Achievements', boost:'Boosts'};
+const TAB_TITLES={gen:'Generators', upg:'Upgrades', mgr:'Managers', prestige:'Prestige', ach:'Achievements', boost:'Boosts'};
 function openSheet(tab){
   currentTab=tab;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===tab));
@@ -1029,7 +1092,7 @@ function load(){
   try{
     const s=JSON.parse(raw); state=Object.assign(state, s);
     GENERATORS.forEach(g=>{ if(state.gens[g.id]==null) state.gens[g.id]=0; });
-    if(!state.achs) state.achs={}; if(!state.upgrades) state.upgrades={};
+    if(!state.achs) state.achs={}; if(!state.upgrades) state.upgrades={}; if(!state.managers) state.managers={};
     return true;
   }catch(e){ return false; }
 }
