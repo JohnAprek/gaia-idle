@@ -174,6 +174,8 @@
   .item .cost { font-weight: 800; font-size: 13px; color: var(--gold); }
   .item .cost.cant { color: var(--danger); }
   .item .owned { font-size: 11px; color: var(--muted); }
+  .pbar { height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-top:5px; }
+  .pbar > i { display:block; height:100%; background:linear-gradient(90deg,var(--accent2),var(--accent)); border-radius:3px; }
 
   /* prestige tab */
   .prestige-box { text-align:center; padding: 8px; }
@@ -308,6 +310,7 @@
       <div class="tab" data-tab="gen">🌱</div>
       <div class="tab" data-tab="upg">⚡</div>
       <div class="tab" data-tab="mgr">👷</div>
+      <div class="tab" data-tab="planets">🪐<span class="dot" id="planetDot"></span></div>
       <div class="tab" data-tab="prestige">🌟<span class="dot" id="prestigeDot"></span></div>
       <div class="tab" data-tab="ach">🏆<span class="dot"></span></div>
       <div class="tab" data-tab="boost">💎<span class="dot" id="boostDot"></span></div>
@@ -403,6 +406,21 @@ const STAGES = [
   { min:5e18,      name:'Gaia Reality',    core:'#a0ffe0', mid:'#2e8b7a' },
 ];
 
+// Planet journey — explore a sequence of worlds (Idle Planet Miner style).
+// Travel unlocks at a lifetime-biomass goal; each planet grants a permanent x1.4 production.
+const PLANETS = [
+  { name:'Terra Prime', emoji:'🌍', core:'#7be08a', mid:'#2e8b4f', goal:0 },
+  { name:'Aquaria',     emoji:'🌊', core:'#6bd6e0', mid:'#2e6b8b', goal:5e3 },
+  { name:'Verdantia',   emoji:'🌿', core:'#9be07b', mid:'#2e8b5f', goal:5e5 },
+  { name:'Ember',       emoji:'🔥', core:'#ff9b6b', mid:'#8b3a2e', goal:5e7 },
+  { name:'Glacius',     emoji:'🧊', core:'#bfe9ff', mid:'#2e5b8b', goal:5e9 },
+  { name:'Auroria',     emoji:'🟡', core:'#ffd866', mid:'#8b7a2e', goal:5e11 },
+  { name:'Violetia',    emoji:'🟣', core:'#c9a0ff', mid:'#4b2e8b', goal:5e13 },
+  { name:'Cinderon',    emoji:'🔴', core:'#ff7b8a', mid:'#8b2e3a', goal:5e15 },
+  { name:'Nebulon',     emoji:'🌌', core:'#ff9be0', mid:'#8b2e6b', goal:5e17 },
+  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:5e19 },
+];
+
 const ACHIEVEMENTS = [
   { id:'first',    emoji:'👆', name:'First Touch',      desc:'Tap the planet',       check:s=>s.clicks>=1 },
   { id:'spora1',   emoji:'🦠', name:'Genesis',          desc:'Buy first Spore',      check:s=>s.gens.spora>=1 },
@@ -422,6 +440,8 @@ const ACHIEVEMENTS = [
   { id:'bintang25',emoji:'✨', name:'Star Cluster',     desc:'Collect 25 Stars',     check:s=>s.bintang>=25 },
   { id:'universe1',emoji:'🌀', name:'Universe Maker',   desc:'Create first universe',check:s=>s.universeCount>=1 },
   { id:'mgr1',     emoji:'👷', name:'First Hire',       desc:'Hire a manager',       check:s=>Object.keys(s.managers||{}).length>=1 },
+  { id:'explore1', emoji:'🚀', name:'Explorer',         desc:'Travel to a new planet',check:s=>(s.planetIndex||0)>=1 },
+  { id:'voyager',  emoji:'🪐', name:'Voyager',          desc:'Discover every planet', check:s=>(s.planetIndex||0)>=PLANETS.length-1 },
 ];
 
 const COST_GROWTH = 1.18;
@@ -447,6 +467,7 @@ let state = {
   gaiaSpores: 0, prestigeCount: 0,
   bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
   singularitas: 0, universeCount: 0, universeUnlocked: false,
+  planetIndex: 0,
   clicks: 0, claimedOffline: false,
   soundOn: true, musicOn: true, lastSave: Date.now(),
   boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
@@ -494,7 +515,18 @@ function upgAllMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='all'&&state.u
 function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
 function boostActive(){ return Date.now() < state.boostUntil; }
 function boostMult(){ return (boostActive() ? 2 : 1) * (state.adsRemoved ? 2 : 1); }
-function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult(); }
+function planetMult(){ return Math.pow(1.4, state.planetIndex); }
+function nextPlanet(){ return PLANETS[state.planetIndex+1] || null; }
+function canTravel(){ const n=nextPlanet(); return !!n && state.lifetime >= n.goal; }
+function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult() * planetMult(); }
+function doTravel(){
+  if(!canTravel()) return;
+  state.planetIndex++;
+  const pl=PLANETS[state.planetIndex];
+  sfx('prestige'); screenFlash(pl.core+'cc'); burstParticles(pl.emoji, 16);
+  toast(`🚀 Traveled to ${pl.name}!`);
+  updateStats(); renderShop(); save(true);
+}
 // Managers: per-generator multiplier with upgradeable levels (Lv1 ×2, Lv2 ×3, ...)
 function managerLevel(id){ return state.managers[id]||0; }
 function managerMult(id){ const l=managerLevel(id); return l>0 ? 1+l : 1; }
@@ -600,12 +632,14 @@ function updateStats(){
   if(!state.galaxyUnlocked && state.gaiaSpores>=GAL_REQ){ state.galaxyUnlocked=true; toast('⭐ GALAXY layer unlocked! Check the 🌟 tab'); sfx('ach'); }
   if(!state.universeUnlocked && state.bintang>=UNI_REQ){ state.universeUnlocked=true; toast('🌀 UNIVERSE layer unlocked! Check the 🌟 tab'); sfx('ach'); }
   const pd=$('prestigeDot'); if(pd) pd.style.display = (potentialGaia()>=1||potentialBintang()>=1||potentialSing()>=1)?'block':'none';
+  const pld=$('planetDot'); if(pld) pld.style.display = canTravel()?'block':'none';
   const stage = currentStage();
-  $('stageName').textContent = stage.name;
+  const pl = PLANETS[state.planetIndex] || PLANETS[0];
+  $('stageName').textContent = `${pl.emoji} ${pl.name} · ${stage.name}`;
   const p = $('planet');
-  p.style.background = `radial-gradient(circle at 35% 30%, ${stage.core}, ${stage.mid} 70%, #1a1c28)`;
+  p.style.background = `radial-gradient(circle at 35% 30%, ${pl.core}, ${pl.mid} 70%, #1a1c28)`;
   const glow = Math.min(45, 8 + Math.log10(state.runEarned+1)*4.5);
-  p.style.boxShadow = `0 0 ${glow}px ${glow/2}px ${stage.core}66`;
+  p.style.boxShadow = `0 0 ${glow}px ${glow/2}px ${pl.core}66`;
   // deteksi naik stage
   if (lastStageMin !== -1 && stage.min > lastStageMin) {
     onStageUp(stage);
@@ -707,11 +741,38 @@ function renderShop(){
     document.querySelector('[data-tab=ach]').classList.remove('has-news');
   } else if (currentTab === 'mgr') {
     renderManagers(shop);
+  } else if (currentTab === 'planets') {
+    renderPlanets(shop);
   } else if (currentTab === 'boost') {
     renderBoost(shop);
   }
 }
 
+function renderPlanets(shop){
+  const head=document.createElement('p');
+  head.style.cssText='text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px';
+  head.innerHTML=`Discovered <b style="color:var(--gold)">${state.planetIndex+1}/${PLANETS.length}</b> · journey bonus ×${fmt(planetMult())}`;
+  shop.appendChild(head);
+  PLANETS.forEach((pl,i)=>{
+    const el=document.createElement('div'); el.className='item';
+    const ready = (i===state.planetIndex+1) && state.lifetime>=pl.goal;
+    let status;
+    if(i<=state.planetIndex){ el.classList.add('affordable');
+      status=`✓ Discovered · <span style="color:var(--accent)">×1.4 production</span>`; }
+    else if(i===state.planetIndex+1){
+      const prog=Math.min(1, state.lifetime/pl.goal);
+      status=`Reach <b style="color:var(--gold)">${fmt(pl.goal)}</b> 🌿 lifetime
+        <div class="pbar"><i style="width:${(prog*100).toFixed(1)}%"></i></div>`;
+      if(ready) el.classList.add('affordable');
+    } else { el.style.opacity='0.45'; status=`🔒 Locked · needs ${fmt(pl.goal)} 🌿 lifetime`; }
+    el.innerHTML=`<div class="emoji">${pl.emoji}</div>
+      <div class="info"><div class="name">${pl.name}${i===state.planetIndex?' <span style="color:var(--gold)">(current)</span>':''}</div>
+        <div class="desc">${status}</div></div>
+      <div class="right">${ready?'<div class="cost" style="color:var(--accent)">🚀 Travel</div>':''}</div>`;
+    if(ready) el.onclick=doTravel;
+    shop.appendChild(el);
+  });
+}
 function renderManagers(shop){
   let any=false;
   GENERATORS.forEach(g=>{
@@ -958,7 +1019,7 @@ function burstParticles(emoji, count){
 
 // ---------- TABS / SLIDE-UP MENU ----------
 let sheetOpen=false;
-const TAB_TITLES={gen:'Generators', upg:'Upgrades', mgr:'Managers', prestige:'Prestige', ach:'Achievements', boost:'Boosts'};
+const TAB_TITLES={gen:'Generators', upg:'Upgrades', mgr:'Managers', planets:'Planets', prestige:'Prestige', ach:'Achievements', boost:'Boosts'};
 function openSheet(tab){
   currentTab=tab;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===tab));
