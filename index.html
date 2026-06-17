@@ -52,7 +52,7 @@
 
   #app {
     position: relative; z-index: 1;
-    display: grid; grid-template-rows: auto auto 1fr auto; height: 100%;
+    display: grid; grid-template-rows: auto 1fr auto; height: 100%;
     max-width: 480px; margin: 0 auto; padding: 10px; gap: 8px;
   }
 
@@ -71,8 +71,28 @@
 
   .planet-area {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    position: relative; overflow: visible; flex-shrink: 0; padding: 6px 0;
+    position: relative; z-index: 1; overflow: visible; min-height: 0; padding: 6px 0;
   }
+
+  /* pulsing aura behind planet */
+  .aura { position:absolute; top:50%; left:50%; width:180px; height:180px; margin:-90px 0 0 -90px;
+    border-radius:50%; z-index:0; pointer-events:none;
+    box-shadow:0 0 55px 18px var(--accent); opacity:0.2; animation: auraPulse 4.5s ease-in-out infinite; }
+  @keyframes auraPulse { 0%,100%{ transform:scale(1); opacity:0.15; } 50%{ transform:scale(1.18); opacity:0.3; } }
+
+  /* orbiting moon */
+  .orbit { position:absolute; top:50%; left:50%; width:252px; height:252px; margin:-126px 0 0 -126px;
+    z-index:0; pointer-events:none; animation: orbitSpin 16s linear infinite; }
+  .moon { position:absolute; top:-4px; left:50%; margin-left:-9px; font-size:18px; filter:drop-shadow(0 0 5px rgba(180,210,255,0.8)); }
+  @keyframes orbitSpin { to { transform: rotate(360deg); } }
+
+  /* tap ripple */
+  .ripple { position:absolute; width:160px; height:160px; border:2px solid var(--accent);
+    border-radius:50%; pointer-events:none; z-index:4; }
+
+  /* screen flash for big moments */
+  .flash { position:fixed; inset:0; pointer-events:none; z-index:90;
+    background:radial-gradient(circle, rgba(255,255,255,0.55), transparent 65%); opacity:0; }
   .planet {
     width: 180px; height: 180px; border-radius: 50%; cursor: pointer; position: relative;
     flex-shrink: 0; overflow: hidden;
@@ -223,6 +243,27 @@
   .golden { position:fixed; z-index:70; font-size:40px; cursor:pointer; filter: drop-shadow(0 0 12px var(--gold));
     animation: goldenPulse 1s ease-in-out infinite; }
   @keyframes goldenPulse { 0%,100%{ transform:scale(1) rotate(-8deg);} 50%{ transform:scale(1.18) rotate(8deg);} }
+
+  /* bottom dock (tabs + utility) — always visible, opaque so the closed sheet hides behind it */
+  .dock { position: relative; z-index: 10; background: var(--bg);
+    display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+
+  /* slide-up menu sheet (only shows when a tab is pressed) */
+  .sheet-backdrop { position:absolute; inset:0; z-index:5; background:rgba(5,8,20,0.5);
+    opacity:0; pointer-events:none; transition:opacity 0.3s; backdrop-filter:blur(1px); }
+  .sheet-backdrop.show { opacity:1; pointer-events:auto; }
+  .sheet { position:absolute; left:0; right:0; bottom:0; z-index:6; max-height:100%;
+    display:flex; flex-direction:column; padding:4px 10px 10px;
+    background: linear-gradient(135deg, var(--panel), var(--panel2));
+    border-radius:20px 20px 0 0; box-shadow:0 -12px 40px rgba(0,0,0,0.55);
+    transform: translateY(112%); transition: transform 0.36s cubic-bezier(.2,.85,.25,1); }
+  .sheet.open { transform: translateY(0); }
+  .sheet-bar { display:flex; align-items:center; justify-content:space-between; padding:6px 4px 8px; }
+  .sheet-bar::before { content:''; position:absolute; left:50%; top:5px; transform:translateX(-50%);
+    width:42px; height:4px; border-radius:2px; background:var(--muted); opacity:0.5; }
+  .sheet-title { font-weight:800; font-size:14px; color:var(--accent); }
+  .sheet-close { font-size:16px; color:var(--muted); cursor:pointer; padding:2px 8px; border-radius:8px; }
+  .sheet-close:active { background:rgba(255,255,255,0.08); }
 </style>
 </head>
 <body>
@@ -241,26 +282,35 @@
   </div>
 
   <div class="planet-area">
+    <div class="aura"></div>
+    <div class="orbit"><span class="moon">🌑</span></div>
     <button class="planet" id="planet"><span class="terrain"></span></button>
     <div class="planet-hint">Tap the planet to grow life</div>
+
+    <div class="sheet-backdrop" id="sheetBackdrop"></div>
+    <div class="sheet" id="sheet">
+      <div class="sheet-bar">
+        <span class="sheet-title" id="sheetTitle">Generators</span>
+        <span class="sheet-close" id="sheetClose">✕</span>
+      </div>
+      <div class="shop" id="shop"></div>
+    </div>
   </div>
 
-  <div class="panel-wrap">
+  <div class="dock">
     <div class="tabs">
-      <div class="tab active" data-tab="gen">🌱</div>
+      <div class="tab" data-tab="gen">🌱</div>
       <div class="tab" data-tab="upg">⚡</div>
       <div class="tab" data-tab="prestige">🌟<span class="dot" id="prestigeDot"></span></div>
       <div class="tab" data-tab="ach">🏆<span class="dot"></span></div>
       <div class="tab" data-tab="boost">💎<span class="dot" id="boostDot"></span></div>
     </div>
-    <div class="shop" id="shop"></div>
-  </div>
-
-  <div class="footer">
-    <button class="btn" id="musicBtn">🎵 Music</button>
-    <button class="btn" id="soundBtn">🔊 Sound</button>
-    <button class="btn" id="saveBtn">💾 Save</button>
-    <button class="btn" id="resetBtn">🔄 Reset</button>
+    <div class="footer">
+      <button class="btn" id="musicBtn">🎵 Music</button>
+      <button class="btn" id="soundBtn">🔊 Sound</button>
+      <button class="btn" id="saveBtn">💾 Save</button>
+      <button class="btn" id="resetBtn">🔄 Reset</button>
+    </div>
   </div>
 </div>
 
@@ -475,7 +525,7 @@ function doPrestige(){
   state.gaiaSpores += gain;
   state.prestigeCount++;
   resetRun();
-  sfx('prestige'); burstParticles('🌟', 16);
+  sfx('prestige'); screenFlash(); burstParticles('🌟', 16);
   toast(`🌟 +${gain} Gaia Spores! A new planet is born.`);
   renderShop(); updateStats(); save(true);
 }
@@ -493,7 +543,7 @@ function doGalaxy(){
   state.galaxyCount++;
   state.gaiaSpores = 0;
   resetRun();
-  sfx('prestige'); burstParticles('⭐', 18);
+  sfx('prestige'); screenFlash(); burstParticles('⭐', 18);
   toast(`⭐ +${gain} Stars! A new galaxy is forged.`);
   renderShop(); updateStats(); save(true);
 }
@@ -506,7 +556,7 @@ function doUniverse(){
   state.bintang = 0;
   state.gaiaSpores = 0;
   resetRun();
-  sfx('prestige'); burstParticles('🌀', 20);
+  sfx('prestige'); screenFlash(); burstParticles('🌀', 20);
   toast(`🌀 +${gain} Singularities! A new universe is created.`);
   renderShop(); updateStats(); save(true);
 }
@@ -778,6 +828,7 @@ function checkAchievements(){
 // ---------- STAGE UP ----------
 function onStageUp(stage){
   burstParticles('✨', 12);
+  screenFlash(stage.core+'88');
   sfx('stage');
   toast(`🌍 Planet evolved: ${stage.name}!`);
   const p=$('planet'); p.classList.add('bump'); setTimeout(()=>p.classList.remove('bump'),500);
@@ -790,9 +841,25 @@ $('planet').addEventListener('pointerdown',(e)=>{
   addBiomass(gain); state.clicks++;
   sfx('click');
   updateStats();
-  if(currentTab==='gen') renderShop();
-  spawnFloat(e, gain);
+  if(sheetOpen && currentTab==='gen') renderShop();
+  spawnFloat(e, gain); spawnRipple(e);
 });
+function spawnRipple(e){
+  const area=document.querySelector('.planet-area'); const rect=area.getBoundingClientRect();
+  const x=(e.clientX||rect.left+rect.width/2)-rect.left, y=(e.clientY||rect.top+rect.height/2)-rect.top;
+  const r=document.createElement('div'); r.className='ripple';
+  r.style.left=(x-80)+'px'; r.style.top=(y-80)+'px';
+  area.appendChild(r);
+  r.animate([{transform:'scale(0.2)',opacity:0.7},{transform:'scale(1)',opacity:0}],{duration:600,easing:'ease-out'});
+  setTimeout(()=>r.remove(),650);
+}
+function screenFlash(color){
+  const f=document.createElement('div'); f.className='flash';
+  if(color) f.style.background=`radial-gradient(circle, ${color}, transparent 65%)`;
+  document.body.appendChild(f);
+  f.animate([{opacity:0.7},{opacity:0}],{duration:600,easing:'ease-out'});
+  setTimeout(()=>f.remove(),650);
+}
 function spawnFloat(e, gain){
   const f=document.createElement('div'); f.className='float'; f.textContent='+'+fmt(gain);
   const area=document.querySelector('.planet-area'); const rect=area.getBoundingClientRect();
@@ -818,13 +885,27 @@ function burstParticles(emoji, count){
   }
 }
 
-// ---------- TABS ----------
+// ---------- TABS / SLIDE-UP MENU ----------
+let sheetOpen=false;
+const TAB_TITLES={gen:'Generators', upg:'Upgrades', prestige:'Prestige', ach:'Achievements', boost:'Boosts'};
+function openSheet(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active', x.dataset.tab===tab));
+  $('sheetTitle').textContent=TAB_TITLES[tab]||'';
+  renderShop();
+  $('sheet').classList.add('open'); $('sheetBackdrop').classList.add('show');
+  sheetOpen=true; sfx('buy');
+}
+function closeSheet(){
+  $('sheet').classList.remove('open'); $('sheetBackdrop').classList.remove('show');
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  sheetOpen=false;
+}
 document.querySelectorAll('.tab').forEach(t=>{
-  t.onclick=()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active'); currentTab=t.dataset.tab; renderShop();
-  };
+  t.onclick=()=>{ const tab=t.dataset.tab; (sheetOpen && currentTab===tab) ? closeSheet() : openSheet(tab); };
 });
+$('sheetClose').onclick=closeSheet;
+$('sheetBackdrop').onclick=closeSheet;
 
 // ---------- SOUND (WebAudio, tanpa file) ----------
 let actx=null;
@@ -931,8 +1012,10 @@ setInterval(()=>{
   const gain=perSec()*dt;
   if(gain>0) addBiomass(gain);
   updateStats();
-  if(currentTab==='gen') renderShop();
-  else if(currentTab==='boost' && now-lastBoostRender>1000){ lastBoostRender=now; renderShop(); }
+  if(sheetOpen){
+    if(currentTab==='gen') renderShop();
+    else if(currentTab==='boost' && now-lastBoostRender>1000){ lastBoostRender=now; renderShop(); }
+  }
 }, TICK_MS);
 
 // ---------- SAVE / LOAD ----------
