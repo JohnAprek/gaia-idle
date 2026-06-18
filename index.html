@@ -124,6 +124,10 @@
     100% { transform: rotate(360deg) scale(1); } }
 
   /* life growing on the planet surface (one icon per generator type owned) */
+  /* geography: dry riverbeds + mountain ranges, embossed so they read on any planet color */
+  .geo { position:absolute; inset:0; z-index:1; pointer-events:none; opacity:0.65;
+    animation: planetSpin 80s linear infinite; }
+
   /* realistic surface life: tiny features that ride on the rotating planet */
   .flora { position:absolute; inset:0; z-index:1; pointer-events:none; animation: planetSpin 80s linear infinite; }
   .flora i { position:absolute; display:block; transform:translate(-50%,-50%); border-radius:50%; }
@@ -323,7 +327,7 @@
   <div class="planet-area">
     <div class="aura"></div>
     <div class="orbit"><span class="moon">🌑</span></div>
-    <button class="planet" id="planet"><span class="terrain"></span><span class="planet-fx" id="planetFx"></span><span class="flora" id="flora"></span></button>
+    <button class="planet" id="planet"><span class="terrain"></span><svg class="geo" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M28,22 C34,34 26,42 36,52 C45,60 38,70 49,80" stroke="rgba(0,0,0,0.3)" stroke-width="2.6"/><path d="M28,22 C34,34 26,42 36,52 C45,60 38,70 49,80" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/><path d="M36,52 C44,50 52,55 61,49" stroke="rgba(0,0,0,0.24)" stroke-width="2"/><path d="M70,28 C64,38 72,47 66,57 C61,66 69,72 63,81" stroke="rgba(0,0,0,0.26)" stroke-width="2.2"/><path d="M70,28 C64,38 72,47 66,57 C61,66 69,72 63,81" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/></g><g><path d="M16,62 L21,52 L26,62 L31,50 L36,62 L41,54 L46,62 Z" fill="rgba(0,0,0,0.3)"/><path d="M16,62 L21,52 L26,62 L31,50 L36,62 L41,54 L46,62" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.7"/><path d="M56,70 L60,63 L64,70 L69,60 L74,70 Z" fill="rgba(0,0,0,0.28)"/><path d="M56,70 L60,63 L64,70 L69,60 L74,70" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.6"/></g></svg><span class="planet-fx" id="planetFx"></span><span class="flora" id="flora"></span></button>
     <div class="planet-hint">Tap the planet to grow life</div>
 
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
