@@ -94,7 +94,8 @@
   .flash { position:fixed; inset:0; pointer-events:none; z-index:90;
     background:radial-gradient(circle, rgba(255,255,255,0.55), transparent 65%); opacity:0; }
   .planet {
-    width: 180px; height: 180px; border-radius: 50%; cursor: pointer; position: relative;
+    width: min(180px, 62vw, 40vh); height: min(180px, 62vw, 40vh); aspect-ratio: 1 / 1;
+    border-radius: 50%; cursor: pointer; position: relative;
     flex-shrink: 0; overflow: hidden;
     background: radial-gradient(circle at 35% 30%, #6b7088, #2e3142 70%, #1a1c28);
     box-shadow: 0 0 0 0 rgba(92,224,138,0);
@@ -130,7 +131,8 @@
 
   /* per-planet surface effect overlay (each planet animates differently) */
   .planet-fx { position:absolute; inset:0; border-radius:50%; z-index:1; pointer-events:none;
-    background-size:220% 100%; background-repeat:no-repeat; }
+    background-size:100% 100%; background-repeat:no-repeat; }
+  .fx-water, .fx-ice, .fx-aurora { background-size:220% 100%; }
   @keyframes fxSpin  { to { transform: rotate(360deg); } }
   @keyframes fxPulse { 0%,100%{ opacity:0.12; } 50%{ opacity:0.5; } }
   @keyframes fxSweep { 0%{ background-position:-120% 0; } 100%{ background-position:240% 0; } }

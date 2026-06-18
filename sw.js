@@ -1,5 +1,5 @@
-/* GAIA — service worker (offline cache) */
-const CACHE = 'gaia-v3';
+/* GAIA — service worker (network-first so updates always reach players) */
+const CACHE = 'gaia-v4';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -18,14 +18,14 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  // cache-first, fallback ke jaringan, lalu fallback ke index saat offline
+  // Network-first: always fetch the latest when online; fall back to cache offline.
   e.respondWith(
-    caches.match(e.request).then((cached) =>
-      cached || fetch(e.request).then((resp) => {
+    fetch(e.request)
+      .then((resp) => {
         const copy = resp.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));
         return resp;
-      }).catch(() => caches.match('./index.html'))
-    )
+      })
+      .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html')))
   );
 });
