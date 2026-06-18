@@ -478,15 +478,15 @@ const STAGES = [
 // Travel unlocks at a lifetime-biomass goal; each planet grants a permanent x1.4 production.
 const PLANETS = [
   { name:'Terra Prime', emoji:'🌍', core:'#7be08a', mid:'#2e8b4f', goal:0,    fx:'clouds',  amb:'☁️', dir:'float' },
-  { name:'Aquaria',     emoji:'🌊', core:'#6bd6e0', mid:'#2e6b8b', goal:5e3,  fx:'water',   amb:'💧', dir:'up' },
-  { name:'Verdantia',   emoji:'🌿', core:'#9be07b', mid:'#2e8b5f', goal:5e5,  fx:'lush',    amb:'🍃', dir:'up' },
-  { name:'Ember',       emoji:'🔥', core:'#ff9b6b', mid:'#8b3a2e', goal:5e7,  fx:'lava',    amb:'🔥', dir:'up' },
-  { name:'Glacius',     emoji:'🧊', core:'#bfe9ff', mid:'#2e5b8b', goal:5e9,  fx:'ice',     amb:'❄️', dir:'down' },
-  { name:'Auroria',     emoji:'🟡', core:'#ffd866', mid:'#8b7a2e', goal:5e11, fx:'aurora',  amb:'✨', dir:'float' },
-  { name:'Violetia',    emoji:'🟣', core:'#c9a0ff', mid:'#4b2e8b', goal:5e13, fx:'nebula',  amb:'💜', dir:'float' },
-  { name:'Cinderon',    emoji:'🔴', core:'#ff7b8a', mid:'#8b2e3a', goal:5e15, fx:'volcano', amb:'💨', dir:'up' },
-  { name:'Nebulon',     emoji:'🌌', core:'#ff9be0', mid:'#8b2e6b', goal:5e17, fx:'cosmic',  amb:'⭐', dir:'float' },
-  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:5e19, fx:'divine',  amb:'🌟', dir:'float' },
+  { name:'Aquaria',     emoji:'🌊', core:'#6bd6e0', mid:'#2e6b8b', goal:1e5,  fx:'water',   amb:'💧', dir:'up' },
+  { name:'Verdantia',   emoji:'🌿', core:'#9be07b', mid:'#2e8b5f', goal:5e7,  fx:'lush',    amb:'🍃', dir:'up' },
+  { name:'Ember',       emoji:'🔥', core:'#ff9b6b', mid:'#8b3a2e', goal:5e9,  fx:'lava',    amb:'🔥', dir:'up' },
+  { name:'Glacius',     emoji:'🧊', core:'#bfe9ff', mid:'#2e5b8b', goal:5e12, fx:'ice',     amb:'❄️', dir:'down' },
+  { name:'Auroria',     emoji:'🟡', core:'#ffd866', mid:'#8b7a2e', goal:5e16, fx:'aurora',  amb:'✨', dir:'float' },
+  { name:'Violetia',    emoji:'🟣', core:'#c9a0ff', mid:'#4b2e8b', goal:5e20, fx:'nebula',  amb:'💜', dir:'float' },
+  { name:'Cinderon',    emoji:'🔴', core:'#ff7b8a', mid:'#8b2e3a', goal:5e25, fx:'volcano', amb:'💨', dir:'up' },
+  { name:'Nebulon',     emoji:'🌌', core:'#ff9be0', mid:'#8b2e6b', goal:5e31, fx:'cosmic',  amb:'⭐', dir:'float' },
+  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:5e38, fx:'divine',  amb:'🌟', dir:'float' },
 ];
 
 const ACHIEVEMENTS = [
@@ -512,20 +512,20 @@ const ACHIEVEMENTS = [
   { id:'voyager',  emoji:'🪐', name:'Voyager',          desc:'Discover every planet', check:s=>(s.planetIndex||0)>=PLANETS.length-1 },
 ];
 
-const COST_GROWTH = 1.18;
+const COST_GROWTH = 1.23;        // steeper climb (balancing v2)
 const SAVE_KEY = 'gaia_save_v3';
 const TICK_MS = 100;
 // Layer 1 — Planet (Gaia Spores 🌟): frontier from biomass/run
-const GAIA_DIV = 100000;        // runEarned per spore (sqrt)
-const GAIA_BONUS = 0.05;        // factor = 1 + gaia*0.05
+const GAIA_DIV = 400000;        // runEarned per spore (sqrt)
+const GAIA_BONUS = 0.035;       // factor = 1 + gaia*0.035
 // Layer 2 — Galaxy (Stars ⭐): frontier from Gaia Spores
-const GAL_REQ = 250;            // min gaia to unlock Galaxy (= BINTANG_DIV, so unlock = when prestige is possible)
-const BINTANG_DIV = 250;        // gaia per bintang (akar)
-const BINTANG_BONUS = 2;        // faktor = 1 + bintang*2
-// Lapisan 3 — Semesta (Singularitas 🌀): frontier dari Bintang
-const UNI_REQ = 300;            // bintang minimum untuk membuka lapisan Semesta
-const SING_DIV = 300;           // bintang per singularitas (akar)
-const SING_BONUS = 12;          // faktor = 1 + sing*12
+const GAL_REQ = 2000;           // min gaia to unlock Galaxy (= BINTANG_DIV, so unlock = when prestige is possible)
+const BINTANG_DIV = 2000;       // gaia per star (sqrt)
+const BINTANG_BONUS = 1.3;      // factor = 1 + stars*1.3
+// Layer 3 — Universe (Singularities 🌀): frontier from Stars
+const UNI_REQ = 2500;           // min stars to unlock Universe
+const SING_DIV = 2500;          // stars per singularity (sqrt)
+const SING_BONUS = 5;           // factor = 1 + sing*5
 const ACH_BONUS = 0.01;         // +1% per achievement
 
 // ---------- STATE ----------
@@ -583,7 +583,7 @@ function upgAllMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='all'&&state.u
 function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
 function boostActive(){ return Date.now() < state.boostUntil; }
 function boostMult(){ return (boostActive() ? 2 : 1) * (state.adsRemoved ? 2 : 1); }
-function planetMult(){ return Math.pow(1.4, state.planetIndex); }
+function planetMult(){ return Math.pow(1.2, state.planetIndex); }
 function nextPlanet(){ return PLANETS[state.planetIndex+1] || null; }
 function canTravel(){ const n=nextPlanet(); return !!n && state.lifetime >= n.goal; }
 function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult() * planetMult(); }
