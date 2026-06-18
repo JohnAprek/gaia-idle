@@ -103,7 +103,8 @@
   }
   .planet:active { transform: scale(0.95); }
   .planet::after { content:''; position:absolute; inset:0; border-radius:50%; z-index:2;
-    box-shadow: inset -16px -16px 36px rgba(0,0,0,0.5), inset 10px 10px 26px rgba(255,255,255,0.06); }
+    box-shadow: inset 14px 14px 28px rgba(255,255,255,0.06), inset -6px -6px 18px rgba(0,0,0,0.18); }
+  .pcanvas { position:absolute; inset:0; width:100%; height:100%; border-radius:50%; z-index:1; display:block; }
 
   /* planet surface terrain (hills/valleys/grooves) — slowly drifts & breathes */
   .terrain { position:absolute; left:-30%; top:-30%; width:160%; height:160%; z-index:1;
@@ -327,7 +328,7 @@
   <div class="planet-area">
     <div class="aura"></div>
     <div class="orbit"><span class="moon">🌑</span></div>
-    <button class="planet" id="planet"><span class="terrain"></span><svg class="geo" viewBox="0 0 100 100" aria-hidden="true"><g fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M28,22 C34,34 26,42 36,52 C45,60 38,70 49,80" stroke="rgba(0,0,0,0.3)" stroke-width="2.6"/><path d="M28,22 C34,34 26,42 36,52 C45,60 38,70 49,80" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/><path d="M36,52 C44,50 52,55 61,49" stroke="rgba(0,0,0,0.24)" stroke-width="2"/><path d="M70,28 C64,38 72,47 66,57 C61,66 69,72 63,81" stroke="rgba(0,0,0,0.26)" stroke-width="2.2"/><path d="M70,28 C64,38 72,47 66,57 C61,66 69,72 63,81" stroke="rgba(255,255,255,0.15)" stroke-width="0.7"/></g><g><path d="M16,62 L21,52 L26,62 L31,50 L36,62 L41,54 L46,62 Z" fill="rgba(0,0,0,0.3)"/><path d="M16,62 L21,52 L26,62 L31,50 L36,62 L41,54 L46,62" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="0.7"/><path d="M56,70 L60,63 L64,70 L69,60 L74,70 Z" fill="rgba(0,0,0,0.28)"/><path d="M56,70 L60,63 L64,70 L69,60 L74,70" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="0.6"/></g></svg><span class="planet-fx" id="planetFx"></span><span class="flora" id="flora"></span></button>
+    <button class="planet" id="planet"><canvas class="pcanvas" id="planetCanvas" width="128" height="128"></canvas></button>
     <div class="planet-hint">Tap the planet to grow life</div>
 
     <div class="sheet-backdrop" id="sheetBackdrop"></div>
@@ -1315,6 +1316,71 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
 
+// ====== PROCEDURAL PLANET (canvas: lit sphere + noise continents + ice + atmosphere) ======
+const PLANET_PAL = [
+  {o:'#1f5fa6',l:'#3a8b4f',m:'#6b6b5a',i:'#eaf6ff',a:'#7fb3ff'}, // Terra
+  {o:'#1565b0',l:'#2e8b6b',m:'#5a7a6b',i:'#eaf6ff',a:'#7fd0ff'}, // Aquaria
+  {o:'#1f6f8b',l:'#2f9b3f',m:'#6b7a3a',i:'#eaffea',a:'#9fe0a0'}, // Verdantia
+  {o:'#c43a10',l:'#3a2520',m:'#140c0a',i:'#ff8a4a',a:'#ff7a3a'}, // Ember (lava/rock)
+  {o:'#2e6b9b',l:'#cfe9ff',m:'#9fbfe0',i:'#ffffff',a:'#bfe9ff'}, // Glacius
+  {o:'#7a5b1e',l:'#caa83a',m:'#8b7320',i:'#fff2c0',a:'#ffe08a'}, // Auroria
+  {o:'#3a2570',l:'#8b5cc0',m:'#5b3a8b',i:'#e8d8ff',a:'#c9a0ff'}, // Violetia
+  {o:'#7a1622',l:'#5b2030',m:'#240d12',i:'#ff8a9a',a:'#ff7b8a'}, // Cinderon
+  {o:'#5a2560',l:'#b03a8b',m:'#7a2e6b',i:'#ffd0f0',a:'#ff9be0'}, // Nebulon
+  {o:'#1f7a6b',l:'#3fc0a0',m:'#2e8b7a',i:'#d0fff0',a:'#a0ffe0'}, // Gaia Eterna
+];
+function hx(h){h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+const HMW=200, HMH=100; let HMAP=null, PAL=[];
+function rand3(x,y,z){ const s=Math.sin(x*12.9898+y*78.233+z*37.719)*43758.5453; return s-Math.floor(s); }
+function vn3(x,y,z){
+  const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z),xf=x-xi,yf=y-yi,zf=z-zi;
+  const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf),w=zf*zf*(3-2*zf), L=(a,b,t)=>a+(b-a)*t, c=(a,b,d)=>rand3(xi+a,yi+b,zi+d);
+  const x00=L(c(0,0,0),c(1,0,0),u),x10=L(c(0,1,0),c(1,1,0),u),x01=L(c(0,0,1),c(1,0,1),u),x11=L(c(0,1,1),c(1,1,1),u);
+  return L(L(x00,x10,v),L(x01,x11,v),w);
+}
+function buildHeightmap(){
+  HMAP=new Float32Array(HMW*HMH);
+  for(let y=0;y<HMH;y++){ const lat=(y/HMH-0.5)*Math.PI, cl=Math.cos(lat), sl=Math.sin(lat);
+    for(let x=0;x<HMW;x++){ const lon=x/HMW*2*Math.PI, px=cl*Math.cos(lon), py=sl, pz=cl*Math.sin(lon);
+      let e=0,amp=0.55,f=1.6; for(let o=0;o<5;o++){ e+=vn3(px*f+10,py*f+20,pz*f+30)*amp; amp*=0.5; f*=2.05; }
+      HMAP[y*HMW+x]=e; } }
+}
+let pcv,pctx,pim,pdat,pN=0,pLat,pLon0,pShade,pRim,pMask,prot=0,pTimer=null;
+function initPlanetGfx(){
+  pcv=document.getElementById('planetCanvas'); if(!pcv||!pcv.getContext) return;
+  PAL=PLANET_PAL.map(p=>{const o=hx(p.o);return {o,od:[o[0]*0.5,o[1]*0.5,o[2]*0.5],l:hx(p.l),m:hx(p.m),i:hx(p.i),a:hx(p.a)};});
+  buildHeightmap();
+  pN=pcv.width; pctx=pcv.getContext('2d'); pim=pctx.createImageData(pN,pN); pdat=pim.data;
+  const R=pN/2, lx=-0.5,ly=-0.55,lz=0.67;
+  pLat=new Float32Array(pN*pN);pLon0=new Float32Array(pN*pN);pShade=new Float32Array(pN*pN);pRim=new Float32Array(pN*pN);pMask=new Uint8Array(pN*pN);
+  for(let y=0;y<pN;y++) for(let x=0;x<pN;x++){ const i=y*pN+x, nx=(x-R+0.5)/R, ny=(y-R+0.5)/R, d2=nx*nx+ny*ny;
+    if(d2>1){ pMask[i]=0; continue; } pMask[i]=1; const nz=Math.sqrt(1-d2);
+    pLat[i]=Math.asin(ny<-1?-1:ny>1?1:ny); pLon0[i]=Math.atan2(nx,nz);
+    let diff=nx*lx+ny*ly+nz*lz; if(diff<0)diff=0; pShade[i]=Math.min(1.25,0.22+0.95*diff); pRim[i]=Math.pow(1-nz,3);
+  }
+  if(pTimer) clearInterval(pTimer); pTimer=setInterval(drawPlanet,55); drawPlanet();
+}
+function drawPlanet(){
+  if(!pctx||document.hidden) return;
+  prot+=0.006;
+  const pal=PAL[state.planetIndex]||PAL[0], o=pal.o,od=pal.od,l=pal.l,m=pal.m,ice=pal.i,atmo=pal.a, SEA=0.46, TP=2*Math.PI;
+  for(let i=0;i<pN*pN;i++){ const di=i*4;
+    if(!pMask[i]){ pdat[di+3]=0; continue; }
+    let lon=(pLon0[i]+prot)/TP; lon-=Math.floor(lon); const lat=pLat[i];
+    const ix=(lon*HMW)|0; let iy=((lat/Math.PI+0.5)*HMH)|0; if(iy<0)iy=0; else if(iy>=HMH)iy=HMH-1;
+    const h=HMAP[iy*HMW+(ix>=HMW?HMW-1:ix)];
+    let r,g,b;
+    if(h<SEA){ const t=h/SEA; r=od[0]+(o[0]-od[0])*t; g=od[1]+(o[1]-od[1])*t; b=od[2]+(o[2]-od[2])*t; }
+    else { if(h>0.72){ const mt=(h-0.72)/0.28; r=l[0]+(m[0]-l[0])*mt; g=l[1]+(m[1]-l[1])*mt; b=l[2]+(m[2]-l[2])*mt; }
+      else { const t=(h-SEA)/(1-SEA); r=l[0]; g=l[1]; b=l[2]; if(t<0.15){ const c=0.82+t/0.15*0.18; r*=c; g*=c; b*=c; } } }
+    const al=lat<0?-lat:lat; if(al>1.1){ let t=(al-1.1)/0.47; if(t>1)t=1; t*=0.92; r+=(ice[0]-r)*t; g+=(ice[1]-g)*t; b+=(ice[2]-b)*t; }
+    const sh=pShade[i]; r*=sh; g*=sh; b*=sh;
+    const rim=pRim[i]*0.9; r+=atmo[0]*rim; g+=atmo[1]*rim; b+=atmo[2]*rim;
+    pdat[di]=r>255?255:r; pdat[di+1]=g>255?255:g; pdat[di+2]=b>255?255:b; pdat[di+3]=255;
+  }
+  pctx.putImageData(pim,0,0);
+}
+
 // ---------- INIT ----------
 const hadSave=load();
 $('soundBtn').textContent = state.soundOn?'🔊 Sound':'🔇 Muted';
@@ -1323,6 +1389,7 @@ if(hadSave) applyOffline();
 lastStageMin = currentStage().min; // don't trigger stage-up on load
 updateStats();
 renderShop();
+initPlanetGfx();
 scheduleGolden();
 scheduleMeteors();
 scheduleSatellite();
