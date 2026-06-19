@@ -857,7 +857,7 @@ function renderPlanets(shop){
     const ready = (i===state.planetIndex+1) && state.lifetime>=pl.goal;
     let status;
     if(i<=state.planetIndex){ el.classList.add('affordable');
-      status=`✓ Discovered · <span style="color:var(--accent)">×1.4 production</span>`; }
+      status = i===0 ? '✓ Home world' : `✓ Discovered · <span style="color:var(--accent)">×1.2 production</span>`; }
     else if(i===state.planetIndex+1){
       const prog=Math.min(1, state.lifetime/pl.goal);
       status=`Reach <b style="color:var(--gold)">${fmt(pl.goal)}</b> 🌿 lifetime
@@ -1266,7 +1266,7 @@ setInterval(()=>{
   updateStats();
   if(sheetOpen){
     if(currentTab==='gen') renderShop();
-    else if(currentTab==='boost' && now-lastBoostRender>1000){ lastBoostRender=now; renderShop(); }
+    else if((currentTab==='boost'||currentTab==='planets'||currentTab==='prestige') && now-lastBoostRender>800){ lastBoostRender=now; renderShop(); }
   }
 }, TICK_MS);
 
