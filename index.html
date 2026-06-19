@@ -1432,24 +1432,65 @@ function initPlanet2D(){ const cv=document.getElementById('planetCanvas'); if(!c
 }
 
 // ====== ORBITING BODIES (space-tier generators orbit the planet) ======
-// exactly ONE orbiter per owned type (count does not matter — 97 stations still show 1)
+// ONE orbiter per owned type. Spherical bodies are REAL 3D WebGL spheres (lit, rotating like the planet).
 const ORB_DEFS=[
-  {id:'orbit',    icon:'🛰️', rf:1.28, ry:0.40, sp:0.40, ph:0.0, incl: 0.12, sz:15},
-  {id:'bulan',    icon:'🌙', rf:1.66, ry:0.40, sp:0.22, ph:2.3, incl:-0.24, sz:21},
-  {id:'mtbuatan', icon:'🔆', rf:1.95, ry:0.34, sp:0.15, ph:4.2, incl: 0.34, sz:18},
-  {id:'warp',     icon:'🌀', rf:1.44, ry:0.52, sp:0.30, ph:1.1, incl:-0.46, sz:16},
-  {id:'dyson',    icon:'🛸', rf:1.56, ry:0.46, sp:0.26, ph:5.2, incl: 0.20, sz:15},
-  {id:'asteroid', icon:'🪨', rf:1.82, ry:0.40, sp:0.18, ph:3.1, incl:-0.14, sz:13},
+  {id:'orbit',    shape:'icon', icon:'🛰️', rf:1.28, ry:0.40, sp:0.40, ph:0.0, incl: 0.12, sz:15},
+  {id:'bulan',    shape:'moon', c1:'#cfd3dd', c2:'#5f636e', disp:42, rf:1.66, ry:0.40, sp:0.22, ph:2.3, incl:-0.24},
+  {id:'mtbuatan', shape:'sun',  c1:'#ffe27a', c2:'#ff7a30', disp:38, rf:1.95, ry:0.34, sp:0.15, ph:4.2, incl: 0.34},
+  {id:'warp',     shape:'icon', icon:'🌀', rf:1.44, ry:0.52, sp:0.30, ph:1.1, incl:-0.46, sz:16},
+  {id:'dyson',    shape:'icon', icon:'🛸', rf:1.56, ry:0.46, sp:0.26, ph:5.2, incl: 0.20, sz:15},
+  {id:'asteroid', shape:'rock', c1:'#b3a48d', c2:'#52483c', disp:26, rf:1.82, ry:0.40, sp:0.18, ph:3.1, incl:-0.14},
 ];
+const SVS='attribute vec2 p;varying vec2 v;void main(){v=p;gl_Position=vec4(p,0.,1.);}';
+const SFS=[
+ 'precision highp float;varying vec2 v;uniform float uTime,uKind;uniform vec3 c1,c2;',
+ 'float h3(vec3 p){p=fract(p*0.3183+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}',
+ 'float vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);',
+ 'return mix(mix(mix(h3(i),h3(i+vec3(1,0,0)),f.x),mix(h3(i+vec3(0,1,0)),h3(i+vec3(1,1,0)),f.x),f.y),',
+ 'mix(mix(h3(i+vec3(0,0,1)),h3(i+vec3(1,0,1)),f.x),mix(h3(i+vec3(0,1,1)),h3(i+vec3(1,1,1)),f.x),f.y),f.z);}',
+ 'float fbm(vec3 p){float a=0.5,s=0.0;for(int i=0;i<4;i++){s+=a*vn(p);p*=2.1;a*=0.5;}return s;}',
+ 'void main(){vec2 uv=v;float r2=dot(uv,uv);if(r2>1.0)discard;float z=sqrt(1.0-r2);vec3 n=vec3(uv,z);',
+ 'float lat=asin(clamp(n.y,-1.0,1.0));float lon=atan(n.x,n.z)+uTime;',
+ 'vec3 sp=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon));float ht=fbm(sp*3.0+5.0);float e=smoothstep(1.0,0.92,r2);',
+ 'if(uKind>1.5){float fl=0.82+0.18*sin(uTime*5.0+ht*8.0);vec3 col=mix(c1,c2,ht)*fl;col+=c1*pow(1.0-z,1.5)*0.7;gl_FragColor=vec4(col,e);return;}',
+ 'vec3 col=mix(c1,c2,ht);float cr=smoothstep(0.6,0.57,fbm(sp*7.0+20.0));col*=1.0-0.4*cr;',
+ 'vec3 L=normalize(vec3(-0.5,-0.55,0.67));float df=max(dot(n,L),0.0);col*=0.16+0.96*df;',
+ 'col+=vec3(0.3,0.4,0.6)*pow(1.0-z,3.0)*0.25;gl_FragColor=vec4(col,e);}'
+].join('\n');
+function makeSphere(cv, shape, c1, c2){
+  let gl; try{gl=cv.getContext('webgl',{alpha:true,premultipliedAlpha:false,antialias:true});}catch(e){}
+  if(!gl) return null;
+  function sh(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+    if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){console.warn('miniGL',gl.getShaderInfoLog(o));return null;}return o;}
+  const vv=sh(gl.VERTEX_SHADER,SVS),ff=sh(gl.FRAGMENT_SHADER,SFS); if(!vv||!ff) return null;
+  const pr=gl.createProgram();gl.attachShader(pr,vv);gl.attachShader(pr,ff);gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) return null; gl.useProgram(pr);
+  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+  const ap=gl.getAttribLocation(pr,'p');gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,2,gl.FLOAT,false,0,0);
+  const uT=gl.getUniformLocation(pr,'uTime'),uK=gl.getUniformLocation(pr,'uKind'),uc1=gl.getUniformLocation(pr,'c1'),uc2=gl.getUniformLocation(pr,'c2');
+  gl.uniform1f(uK, shape==='moon'?0.0: shape==='rock'?1.0:2.0);
+  gl.uniform3fv(uc1, hx(c1).map(x=>x/255)); gl.uniform3fv(uc2, hx(c2).map(x=>x/255));
+  gl.viewport(0,0,cv.width,cv.height); gl.clearColor(0,0,0,0); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  const t0=performance.now(), rs= shape==='sun'?1.0:0.15;
+  return function(){ gl.useProgram(pr); gl.uniform1f(uT,(performance.now()-t0)/1000*rs); gl.clear(gl.COLOR_BUFFER_BIT); gl.drawArrays(gl.TRIANGLES,0,6); };
+}
 let orbInst=[], orbRing=null, orbSig='', orbT=0;
 function orbSignature(){ let s=''; for(const d of ORB_DEFS) if((state.gens[d.id]||0)>0) s+=d.id+','; if((state.gens.cincin||0)>0) s+='ring'; return s; }
 function updateOrbiters(){
   const sig=orbSignature(); if(sig===orbSig) return; orbSig=sig;
   const cont=$('orbiters'); if(!cont) return; cont.innerHTML=''; orbInst=[]; orbRing=null;
   ORB_DEFS.forEach(d=>{ if((state.gens[d.id]||0)<=0) return;       // presence only — one each
-    const el=document.createElement('div'); el.className='orbiter orb-emoji'; el.textContent=d.icon; el.style.fontSize=d.sz+'px';
+    let el, draw=null;
+    if(d.shape==='icon'){ el=document.createElement('div'); el.className='orbiter orb-emoji'; el.textContent=d.icon; el.style.fontSize=d.sz+'px'; }
+    else { el=document.createElement('canvas'); el.className='orbiter'; el.width=el.height=72;
+      el.style.width=d.disp+'px'; el.style.height=d.disp+'px';
+      if(d.shape==='sun') el.style.filter='drop-shadow(0 0 9px rgba(255,170,70,0.8))';
+      else el.style.filter='drop-shadow(0 0 4px rgba(180,200,255,0.4))';
+      draw=makeSphere(el, d.shape, d.c1, d.c2);
+      if(!draw){ const fb={moon:'🌙',sun:'🔆',rock:'🪨'}; el=document.createElement('div'); el.className='orbiter orb-emoji'; el.textContent=fb[d.shape]; el.style.fontSize='18px'; }
+    }
     cont.appendChild(el);
-    orbInst.push({el, rf:d.rf, ry:d.ry, sp:d.sp, ph:d.ph, ci:Math.cos(d.incl), si:Math.sin(d.incl)});
+    orbInst.push({el, draw, rf:d.rf, ry:d.ry, sp:d.sp, ph:d.ph, ci:Math.cos(d.incl), si:Math.sin(d.incl)});
   });
   if((state.gens.cincin||0)>0){ orbRing=document.createElement('div'); orbRing.className='orb-ring'; cont.appendChild(orbRing); }
 }
@@ -1464,7 +1505,8 @@ function orbFrame(){
         const dx=ex*o.ci-ey*o.si, dy=ex*o.si+ey*o.ci;             // tilt the orbital plane (inclination)
         const sc=1+0.28*f;                                         // bigger when in front
         o.el.style.transform=`translate(${cx+dx}px,${cy+dy}px) translate(-50%,-50%) scale(${sc})`;
-        o.el.style.opacity=0.45+0.55*((f+1)/2); o.el.style.zIndex = f>0?3:1; } // behind planet when far side
+        o.el.style.opacity=0.45+0.55*((f+1)/2); o.el.style.zIndex = f>0?3:1; // behind planet when far side
+        if(o.draw) o.draw(); }                                      // render the 3D sphere
       if(orbRing){ orbRing.style.width=(R*3.3)+'px'; orbRing.style.height=(R*3.3*0.38)+'px';
         orbRing.style.transform='translate(-50%,-50%) rotate(-14deg)'; orbRing.style.zIndex=1; }
     }
