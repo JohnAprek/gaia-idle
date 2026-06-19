@@ -522,7 +522,7 @@ const ACHIEVEMENTS = [
 ];
 
 const COST_GROWTH = 1.23;        // steeper climb (balancing v2)
-const SAVE_KEY = 'gaia_save_v3';
+const SAVE_KEY = 'gaia_save_v4';   // v4: per-planet generators (shared biomass)
 const TICK_MS = 100;
 // Layer 1 — Planet (Gaia Spores 🌟): frontier from biomass/run
 const GAIA_DIV = 400000;        // runEarned per spore (sqrt)
@@ -544,7 +544,7 @@ let state = {
   gaiaSpores: 0, prestigeCount: 0,
   bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
   singularitas: 0, universeCount: 0, universeUnlocked: false,
-  planetIndex: 0, planetMax: 0,
+  planetIndex: 0, planetMax: 0, pg: {},
   clicks: 0, claimedOffline: false,
   soundOn: true, musicOn: true, lastSave: Date.now(),
   boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
@@ -597,19 +597,33 @@ function planetMult(){ return Math.pow(1.2, planetMax()); }        // journey bo
 function nextPlanet(){ return PLANETS[planetMax()+1] || null; }
 function canTravel(){ const n=nextPlanet(); return !!n && state.lifetime >= n.goal; }
 function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult() * planetMult(); }
-function doTravel(){                                                // discover & travel to the NEXT planet
+function stashCurrentPlanet(){ state.pg[state.planetIndex]={gens:state.gens, mgr:state.managers}; }
+function loadPlanet(i){                                            // make planet i the active (viewed/built) one
+  if(i===state.planetIndex) return;
+  stashCurrentPlanet();
+  const p=state.pg[i];
+  state.gens = p ? p.gens : freshGens();                          // each planet keeps its own generators
+  state.managers = p ? (p.mgr||{}) : {};
+  GENERATORS.forEach(g=>{ if(state.gens[g.id]==null) state.gens[g.id]=0; });
+  delete state.pg[i];
+  state.planetIndex=i;
+}
+function doTravel(){                                                // discover & travel to a brand-new planet
   if(!canTravel()) return;
-  state.planetMax = planetMax()+1; state.planetIndex = state.planetMax;
-  const pl=PLANETS[state.planetIndex];
+  const b=planetMax()+1;
+  stashCurrentPlanet();
+  state.gens=freshGens(); state.managers={};                       // new world starts undeveloped
+  state.planetMax=b; state.planetIndex=b; delete state.pg[b];
+  const pl=PLANETS[b];
   sfx('prestige'); screenFlash(pl.core+'cc'); burstParticles(pl.emoji, 16);
   toast(`🚀 Traveled to ${pl.name}!`);
   updateStats(); renderShop(); save(true);
 }
 function switchPlanet(i){                                          // visit any already-discovered planet (back or forward)
   if(i<0 || i>planetMax() || i===state.planetIndex) return;
-  state.planetIndex=i; const pl=PLANETS[i];
+  loadPlanet(i); const pl=PLANETS[i];
   sfx('buy'); screenFlash(pl.core+'aa');
-  toast(`🪐 Now viewing ${pl.name}`);
+  toast(`🪐 Now on ${pl.name}`);
   updateStats(); renderShop(); save(true);
 }
 // Managers: per-generator multiplier with upgradeable levels (Lv1 ×2, Lv2 ×3, ...)
@@ -621,7 +635,12 @@ const MILES=[10,25,50,100,150,200,300,400,500,750,1000];
 function milestoneCount(n){ let c=0; for(const m of MILES){ if(n>=m) c++; } if(n>1000) c+=Math.floor((n-1000)/500); return c; }
 function milestoneMult(id){ return Math.pow(2, milestoneCount(state.gens[id]||0)); }
 function nextMilestone(n){ for(const m of MILES){ if(n<m) return m; } return 1000+Math.ceil((Math.max(n,1000)-999)/500)*500; }
-function perSec(){ let t=0; GENERATORS.forEach(g=>t+=state.gens[g.id]*g.rate*managerMult(g.id)*milestoneMult(g.id)); return t*globalMult(); }
+function freshGens(){ const o={}; GENERATORS.forEach(g=>o[g.id]=0); return o; }
+function managerMultM(mgr,id){ const l=mgr[id]||0; return l>0?1+l:1; }
+function milestoneMultM(gens,id){ return Math.pow(2, milestoneCount(gens[id]||0)); }
+function planetProd(gens,mgr){ let t=0; GENERATORS.forEach(g=>{ const n=gens[g.id]||0; if(n) t+=n*g.rate*managerMultM(mgr,g.id)*milestoneMultM(gens,g.id); }); return t; }
+// total production = current planet + every other discovered planet (separate generators, one shared biomass)
+function perSec(){ let t=planetProd(state.gens,state.managers); const pg=state.pg||{}; for(const k in pg) t+=planetProd(pg[k].gens||{}, pg[k].mgr||{}); return t*globalMult(); }
 function clickPower(){ return 1 * upgClickMult() * globalMult(); }
 
 // Model "frontier" tiap lapisan: hanya dapat mata uang bila memecahkan rekor.
@@ -669,9 +688,8 @@ function doPrestige(){
 // reset level "run" (biomassa, generator, upgrade) — dipakai semua lapisan
 function resetRun(){
   state.biomass = 0; state.runEarned = 0;
-  GENERATORS.forEach(g=>state.gens[g.id]=0);
+  state.gens = freshGens(); state.managers = {}; state.pg = {};   // wipe generators on EVERY planet
   state.upgrades = {};
-  state.managers = {};
 }
 function doGalaxy(){
   const gain = potentialBintang();
@@ -1294,6 +1312,7 @@ function load(){
     const s=JSON.parse(raw); state=Object.assign(state, s);
     GENERATORS.forEach(g=>{ if(state.gens[g.id]==null) state.gens[g.id]=0; });
     if(!state.achs) state.achs={}; if(!state.upgrades) state.upgrades={}; if(!state.managers) state.managers={};
+    if(!state.pg) state.pg={};
     state.planetMax=Math.max(state.planetMax||0, state.planetIndex||0);   // migrate: furthest >= current view
     return true;
   }catch(e){ return false; }
