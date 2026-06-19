@@ -1439,7 +1439,7 @@ const ORB_DEFS=[
   {id:'mtbuatan', shape:'sun',  c1:'#ffe27a', c2:'#ff7a30', disp:38, rf:1.95, ry:0.34, sp:0.15, ph:4.2, incl: 0.34},
   {id:'warp',     shape:'icon', icon:'🌀', rf:1.44, ry:0.52, sp:0.30, ph:1.1, incl:-0.46, sz:16},
   {id:'dyson',    shape:'icon', icon:'🛸', rf:1.56, ry:0.46, sp:0.26, ph:5.2, incl: 0.20, sz:15},
-  {id:'asteroid', shape:'rock', c1:'#b3a48d', c2:'#52483c', disp:26, rf:1.82, ry:0.40, sp:0.18, ph:3.1, incl:-0.14},
+  {id:'asteroid', shape:'belt', count:18, rf:1.82, ry:0.40, sp:0.16, ph:3.1, incl:-0.14},
 ];
 const SVS='attribute vec2 p;varying vec2 v;void main(){v=p;gl_Position=vec4(p,0.,1.);}';
 const SFS=[
@@ -1480,6 +1480,14 @@ function updateOrbiters(){
   const sig=orbSignature(); if(sig===orbSig) return; orbSig=sig;
   const cont=$('orbiters'); if(!cont) return; cont.innerHTML=''; orbInst=[]; orbRing=null;
   ORB_DEFS.forEach(d=>{ if((state.gens[d.id]||0)<=0) return;       // presence only — one each
+    if(d.shape==='belt'){                                          // asteroid belt = many small rocks (fixed, not count-scaled)
+      for(let k=0;k<d.count;k++){ const rk=document.createElement('div'); rk.className='orbiter orb-dot';
+        const s=2.5+(Math.sin(k*12.9)*0.5+0.5)*3.8; rk.style.width=s+'px'; rk.style.height=s+'px';
+        rk.style.background='radial-gradient(circle at 35% 30%, #c8b89a, #5a4f42)';
+        cont.appendChild(rk);
+        orbInst.push({el:rk, draw:null, rf:d.rf, ry:d.ry, sp:d.sp, ph:d.ph+(k/d.count)*Math.PI*2, ci:Math.cos(d.incl), si:Math.sin(d.incl)}); }
+      return;
+    }
     let el, draw=null;
     if(d.shape==='icon'){ el=document.createElement('div'); el.className='orbiter orb-emoji'; el.textContent=d.icon; el.style.fontSize=d.sz+'px'; }
     else { el=document.createElement('canvas'); el.className='orbiter'; el.width=el.height=72;
