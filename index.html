@@ -1432,25 +1432,24 @@ function initPlanet2D(){ const cv=document.getElementById('planetCanvas'); if(!c
 }
 
 // ====== ORBITING BODIES (space-tier generators orbit the planet) ======
+// exactly ONE orbiter per owned type (count does not matter — 97 stations still show 1)
 const ORB_DEFS=[
-  {id:'orbit',    type:'emoji', icon:'🛰️', rf:1.30, ry:0.42, sp:0.95, count:1, sz:14},
-  {id:'bulan',    type:'emoji', icon:'🌙', rf:1.64, ry:0.40, sp:0.55, count:1, sz:20},
-  {id:'mtbuatan', type:'emoji', icon:'🔆', rf:1.92, ry:0.36, sp:0.38, count:1, sz:18},
-  {id:'warp',     type:'emoji', icon:'🌀', rf:1.46, ry:0.55, sp:0.78, count:1, sz:16},
-  {id:'dyson',    type:'dot',   color:'#bfe0ff', rf:1.52, ry:0.50, sp:0.62, count:8,  sz:6},
-  {id:'asteroid', type:'dot',   color:'#caa37a', rf:1.80, ry:0.40, sp:0.30, count:14, sz:4},
+  {id:'orbit',    icon:'🛰️', rf:1.28, ry:0.40, sp:0.40, ph:0.0, incl: 0.12, sz:15},
+  {id:'bulan',    icon:'🌙', rf:1.66, ry:0.40, sp:0.22, ph:2.3, incl:-0.24, sz:21},
+  {id:'mtbuatan', icon:'🔆', rf:1.95, ry:0.34, sp:0.15, ph:4.2, incl: 0.34, sz:18},
+  {id:'warp',     icon:'🌀', rf:1.44, ry:0.52, sp:0.30, ph:1.1, incl:-0.46, sz:16},
+  {id:'dyson',    icon:'🛸', rf:1.56, ry:0.46, sp:0.26, ph:5.2, incl: 0.20, sz:15},
+  {id:'asteroid', icon:'🪨', rf:1.82, ry:0.40, sp:0.18, ph:3.1, incl:-0.14, sz:13},
 ];
 let orbInst=[], orbRing=null, orbSig='', orbT=0;
 function orbSignature(){ let s=''; for(const d of ORB_DEFS) if((state.gens[d.id]||0)>0) s+=d.id+','; if((state.gens.cincin||0)>0) s+='ring'; return s; }
 function updateOrbiters(){
   const sig=orbSignature(); if(sig===orbSig) return; orbSig=sig;
   const cont=$('orbiters'); if(!cont) return; cont.innerHTML=''; orbInst=[]; orbRing=null;
-  ORB_DEFS.forEach(d=>{ if((state.gens[d.id]||0)<=0) return;
-    for(let k=0;k<d.count;k++){ const el=document.createElement('div'); el.className='orbiter';
-      if(d.type==='emoji'){ el.classList.add('orb-emoji'); el.textContent=d.icon; el.style.fontSize=d.sz+'px'; }
-      else { el.classList.add('orb-dot'); el.style.width=d.sz+'px'; el.style.height=d.sz+'px'; el.style.background=d.color; el.style.boxShadow='0 0 4px '+d.color; }
-      cont.appendChild(el);
-      orbInst.push({el, rf:d.rf, ry:d.ry, sp:d.sp, ph:(k/d.count)*Math.PI*2 + d.rf}); }
+  ORB_DEFS.forEach(d=>{ if((state.gens[d.id]||0)<=0) return;       // presence only — one each
+    const el=document.createElement('div'); el.className='orbiter orb-emoji'; el.textContent=d.icon; el.style.fontSize=d.sz+'px';
+    cont.appendChild(el);
+    orbInst.push({el, rf:d.rf, ry:d.ry, sp:d.sp, ph:d.ph, ci:Math.cos(d.incl), si:Math.sin(d.incl)});
   });
   if((state.gens.cincin||0)>0){ orbRing=document.createElement('div'); orbRing.className='orb-ring'; cont.appendChild(orbRing); }
 }
@@ -1459,13 +1458,15 @@ function orbFrame(){
     const planet=$('planet'), area=document.querySelector('.planet-area');
     if(planet && area){ const pr=planet.getBoundingClientRect(), ar=area.getBoundingClientRect();
       const cx=pr.left-ar.left+pr.width/2, cy=pr.top-ar.top+pr.height/2, R=pr.width/2;
-      orbT+=0.016;
+      orbT+=0.01;                                                    // slower, calmer orbits
       for(const o of orbInst){ const a=orbT*o.sp+o.ph, f=Math.sin(a);
-        const x=cx+Math.cos(a)*R*o.rf, y=cy+f*R*o.rf*o.ry, sc=1+0.25*f;
-        o.el.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%) scale(${sc})`;
-        o.el.style.opacity=0.5+0.5*((f+1)/2); o.el.style.zIndex = f>0?3:1; }
-      if(orbRing){ orbRing.style.width=(R*3.4)+'px'; orbRing.style.height=(R*3.4*0.4)+'px';
-        orbRing.style.transform='translate(-50%,-50%) rotate(-12deg)'; orbRing.style.zIndex=1; }
+        const ex=Math.cos(a)*R*o.rf, ey=f*R*o.rf*o.ry;             // base ellipse
+        const dx=ex*o.ci-ey*o.si, dy=ex*o.si+ey*o.ci;             // tilt the orbital plane (inclination)
+        const sc=1+0.28*f;                                         // bigger when in front
+        o.el.style.transform=`translate(${cx+dx}px,${cy+dy}px) translate(-50%,-50%) scale(${sc})`;
+        o.el.style.opacity=0.45+0.55*((f+1)/2); o.el.style.zIndex = f>0?3:1; } // behind planet when far side
+      if(orbRing){ orbRing.style.width=(R*3.3)+'px'; orbRing.style.height=(R*3.3*0.38)+'px';
+        orbRing.style.transform='translate(-50%,-50%) rotate(-14deg)'; orbRing.style.zIndex=1; }
     }
   }
   requestAnimationFrame(orbFrame);
