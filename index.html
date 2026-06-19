@@ -517,8 +517,8 @@ const ACHIEVEMENTS = [
   { id:'bintang25',emoji:'✨', name:'Star Cluster',     desc:'Collect 25 Stars',     check:s=>s.bintang>=25 },
   { id:'universe1',emoji:'🌀', name:'Universe Maker',   desc:'Create first universe',check:s=>s.universeCount>=1 },
   { id:'mgr1',     emoji:'👷', name:'First Hire',       desc:'Hire a manager',       check:s=>Object.keys(s.managers||{}).length>=1 },
-  { id:'explore1', emoji:'🚀', name:'Explorer',         desc:'Travel to a new planet',check:s=>(s.planetIndex||0)>=1 },
-  { id:'voyager',  emoji:'🪐', name:'Voyager',          desc:'Discover every planet', check:s=>(s.planetIndex||0)>=PLANETS.length-1 },
+  { id:'explore1', emoji:'🚀', name:'Explorer',         desc:'Travel to a new planet',check:s=>(s.planetMax||0)>=1 },
+  { id:'voyager',  emoji:'🪐', name:'Voyager',          desc:'Discover every planet', check:s=>(s.planetMax||0)>=PLANETS.length-1 },
 ];
 
 const COST_GROWTH = 1.23;        // steeper climb (balancing v2)
@@ -544,7 +544,7 @@ let state = {
   gaiaSpores: 0, prestigeCount: 0,
   bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
   singularitas: 0, universeCount: 0, universeUnlocked: false,
-  planetIndex: 0,
+  planetIndex: 0, planetMax: 0,
   clicks: 0, claimedOffline: false,
   soundOn: true, musicOn: true, lastSave: Date.now(),
   boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
@@ -592,16 +592,24 @@ function upgAllMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='all'&&state.u
 function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
 function boostActive(){ return Date.now() < state.boostUntil; }
 function boostMult(){ return (boostActive() ? 2 : 1) * (state.adsRemoved ? 2 : 1); }
-function planetMult(){ return Math.pow(1.2, state.planetIndex); }
-function nextPlanet(){ return PLANETS[state.planetIndex+1] || null; }
+function planetMax(){ return state.planetMax||0; }                 // furthest planet discovered
+function planetMult(){ return Math.pow(1.2, planetMax()); }        // journey bonus from furthest reached
+function nextPlanet(){ return PLANETS[planetMax()+1] || null; }
 function canTravel(){ const n=nextPlanet(); return !!n && state.lifetime >= n.goal; }
 function globalMult(){ return upgAllMult() * gaiaMult() * bintangMult() * singMult() * achMult() * boostMult() * planetMult(); }
-function doTravel(){
+function doTravel(){                                                // discover & travel to the NEXT planet
   if(!canTravel()) return;
-  state.planetIndex++;
+  state.planetMax = planetMax()+1; state.planetIndex = state.planetMax;
   const pl=PLANETS[state.planetIndex];
   sfx('prestige'); screenFlash(pl.core+'cc'); burstParticles(pl.emoji, 16);
   toast(`🚀 Traveled to ${pl.name}!`);
+  updateStats(); renderShop(); save(true);
+}
+function switchPlanet(i){                                          // visit any already-discovered planet (back or forward)
+  if(i<0 || i>planetMax() || i===state.planetIndex) return;
+  state.planetIndex=i; const pl=PLANETS[i];
+  sfx('buy'); screenFlash(pl.core+'aa');
+  toast(`🪐 Now viewing ${pl.name}`);
   updateStats(); renderShop(); save(true);
 }
 // Managers: per-generator multiplier with upgradeable levels (Lv1 ×2, Lv2 ×3, ...)
@@ -848,27 +856,31 @@ function renderShop(){
 }
 
 function renderPlanets(shop){
+  const pmax=planetMax();
   const head=document.createElement('p');
   head.style.cssText='text-align:center;color:var(--muted);font-size:12px;margin-bottom:8px';
-  head.innerHTML=`Discovered <b style="color:var(--gold)">${state.planetIndex+1}/${PLANETS.length}</b> · journey bonus ×${fmt(planetMult())}`;
+  head.innerHTML=`Discovered <b style="color:var(--gold)">${pmax+1}/${PLANETS.length}</b> · journey bonus ×${fmt(planetMult())}`;
   shop.appendChild(head);
   PLANETS.forEach((pl,i)=>{
     const el=document.createElement('div'); el.className='item';
-    const ready = (i===state.planetIndex+1) && state.lifetime>=pl.goal;
-    let status;
-    if(i<=state.planetIndex){ el.classList.add('affordable');
-      status = i===0 ? '✓ Home world' : `✓ Discovered · <span style="color:var(--accent)">×1.2 production</span>`; }
-    else if(i===state.planetIndex+1){
-      const prog=Math.min(1, state.lifetime/pl.goal);
-      status=`Reach <b style="color:var(--gold)">${fmt(pl.goal)}</b> 🌿 lifetime
-        <div class="pbar"><i style="width:${(prog*100).toFixed(1)}%"></i></div>`;
-      if(ready) el.classList.add('affordable');
+    const viewing=(i===state.planetIndex);
+    let status, action='';
+    if(i<=pmax){                                                   // discovered — tap to visit (back or forward)
+      el.classList.add('affordable');
+      status = i===0 ? '✓ Home world' : `✓ Discovered · <span style="color:var(--accent)">×1.2 production</span>`;
+      action = viewing ? '<div class="cost" style="color:var(--gold)">● Viewing</div>'
+                       : '<div class="cost" style="color:var(--accent)">Visit ▸</div>';
+    } else if(i===pmax+1){                                         // next — travel to discover
+      const prog=Math.min(1, state.lifetime/pl.goal), ready=state.lifetime>=pl.goal;
+      status=`Reach <b style="color:var(--gold)">${fmt(pl.goal)}</b> 🌿 lifetime<div class="pbar"><i style="width:${(prog*100).toFixed(1)}%"></i></div>`;
+      if(ready){ el.classList.add('affordable'); action='<div class="cost" style="color:var(--accent)">🚀 Travel</div>'; }
     } else { el.style.opacity='0.45'; status=`🔒 Locked · needs ${fmt(pl.goal)} 🌿 lifetime`; }
     el.innerHTML=`<div class="emoji">${pl.emoji}</div>
-      <div class="info"><div class="name">${pl.name}${i===state.planetIndex?' <span style="color:var(--gold)">(current)</span>':''}</div>
+      <div class="info"><div class="name">${pl.name}${viewing?' <span style="color:var(--gold)">(current)</span>':''}</div>
         <div class="desc">${status}</div></div>
-      <div class="right">${ready?'<div class="cost" style="color:var(--accent)">🚀 Travel</div>':''}</div>`;
-    if(ready) el.onclick=doTravel;
+      <div class="right">${action}</div>`;
+    if(i<=pmax && !viewing) el.onclick=()=>switchPlanet(i);
+    else if(i===pmax+1 && state.lifetime>=pl.goal) el.onclick=doTravel;
     shop.appendChild(el);
   });
 }
@@ -1282,6 +1294,7 @@ function load(){
     const s=JSON.parse(raw); state=Object.assign(state, s);
     GENERATORS.forEach(g=>{ if(state.gens[g.id]==null) state.gens[g.id]=0; });
     if(!state.achs) state.achs={}; if(!state.upgrades) state.upgrades={}; if(!state.managers) state.managers={};
+    state.planetMax=Math.max(state.planetMax||0, state.planetIndex||0);   // migrate: furthest >= current view
     return true;
   }catch(e){ return false; }
 }
