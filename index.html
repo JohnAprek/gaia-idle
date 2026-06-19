@@ -486,7 +486,7 @@ const PLANETS = [
   { name:'Violetia',    emoji:'🟣', core:'#c9a0ff', mid:'#4b2e8b', goal:5e20, fx:'nebula',  amb:'💜', dir:'float' },
   { name:'Cinderon',    emoji:'🔴', core:'#ff7b8a', mid:'#8b2e3a', goal:5e25, fx:'volcano', amb:'💨', dir:'up' },
   { name:'Nebulon',     emoji:'🌌', core:'#ff9be0', mid:'#8b2e6b', goal:5e31, fx:'cosmic',  amb:'⭐', dir:'float' },
-  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:5e38, fx:'divine',  amb:'🌟', dir:'float' },
+  { name:'Gaia Eterna', emoji:'✨', core:'#a0ffe0', mid:'#2e8b7a', goal:1e34, fx:'divine',  amb:'🌟', dir:'float' },
 ];
 
 const ACHIEVEMENTS = [
@@ -517,15 +517,15 @@ const SAVE_KEY = 'gaia_save_v3';
 const TICK_MS = 100;
 // Layer 1 — Planet (Gaia Spores 🌟): frontier from biomass/run
 const GAIA_DIV = 400000;        // runEarned per spore (sqrt)
-const GAIA_BONUS = 0.035;       // factor = 1 + gaia*0.035
+const GAIA_GB = 0.8, GAIA_GP = 0.4;   // Planet bonus = 1 + 0.8*gaia^0.4 (diminishing, anti-runaway)
 // Layer 2 — Galaxy (Stars ⭐): frontier from Gaia Spores
 const GAL_REQ = 2000;           // min gaia to unlock Galaxy (= BINTANG_DIV, so unlock = when prestige is possible)
 const BINTANG_DIV = 2000;       // gaia per star (sqrt)
-const BINTANG_BONUS = 1.3;      // factor = 1 + stars*1.3
+const BIN_GB = 1.2, BIN_GP = 0.5;     // Galaxy bonus = 1 + 1.2*stars^0.5 (diminishing)
 // Layer 3 — Universe (Singularities 🌀): frontier from Stars
 const UNI_REQ = 2500;           // min stars to unlock Universe
 const SING_DIV = 2500;          // stars per singularity (sqrt)
-const SING_BONUS = 5;           // factor = 1 + sing*5
+const SING_GB = 3, SING_GP = 0.5;     // Universe bonus = 1 + 3*sing^0.5 (diminishing)
 const ACH_BONUS = 0.01;         // +1% per achievement
 
 // ---------- STATE ----------
@@ -575,9 +575,9 @@ function buyQty(g){
 }
 
 // faktor bonus tiap lapisan (ADITIF → stabil, anti-runaway)
-function gaiaMult(){ return 1 + state.gaiaSpores * GAIA_BONUS; }
-function bintangMult(){ return 1 + state.bintang * BINTANG_BONUS; }
-function singMult(){ return 1 + state.singularitas * SING_BONUS; }
+function gaiaMult(){ return 1 + GAIA_GB * Math.pow(state.gaiaSpores, GAIA_GP); }
+function bintangMult(){ return 1 + BIN_GB * Math.pow(state.bintang, BIN_GP); }
+function singMult(){ return 1 + SING_GB * Math.pow(state.singularitas, SING_GP); }
 function achMult(){ return 1 + Object.keys(state.achs).length * ACH_BONUS; }
 function upgAllMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='all'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
 function upgClickMult(){ let m=1; UPGRADES.forEach(u=>{ if(u.type==='click'&&state.upgrades[u.id]) m*=u.mult; }); return m; }
@@ -598,7 +598,7 @@ function doTravel(){
 // Managers: per-generator multiplier with upgradeable levels (Lv1 ×2, Lv2 ×3, ...)
 function managerLevel(id){ return state.managers[id]||0; }
 function managerMult(id){ const l=managerLevel(id); return l>0 ? 1+l : 1; }
-function managerCost(g){ return Math.floor(g.baseCost * 40 * Math.pow(7, managerLevel(g.id))); }
+function managerCost(g){ return Math.floor(g.baseCost * 100 * Math.pow(10, managerLevel(g.id))); }
 // Milestones: owning more of a generator doubles its output at set thresholds (Idle Planet Miner style)
 const MILES=[10,25,50,100,150,200,300,400,500,750,1000];
 function milestoneCount(n){ let c=0; for(const m of MILES){ if(n>=m) c++; } if(n>1000) c+=Math.floor((n-1000)/500); return c; }
@@ -641,7 +641,7 @@ function buyUpgrade(u){
 function doPrestige(){
   const gain = potentialGaia();
   if (gain < 1) return;
-  if (!confirm(`Rebirth the planet?\n\nYou will gain ${gain} 🌟 Gaia Spores (permanent bonus +${(gain*GAIA_BONUS*100).toFixed(0)}%).\n\nBiomass, generators & upgrades reset. Gaia Spores & achievements stay.`)) return;
+  if (!confirm(`Rebirth the planet?\n\nGain ${gain} 🌟 Gaia Spores → permanent bonus +${fmt(((1+GAIA_GB*Math.pow(state.gaiaSpores+gain,GAIA_GP))-1)*100)}% total.\n\nBiomass, generators & upgrades reset. Gaia Spores & achievements stay.`)) return;
   state.gaiaSpores += gain;
   state.prestigeCount++;
   resetRun();
@@ -659,7 +659,7 @@ function resetRun(){
 function doGalaxy(){
   const gain = potentialBintang();
   if (gain < 1) return;
-  if (!confirm(`Forge a new Galaxy?\n\nGain ${gain} ⭐ Stars (permanent bonus +${(gain*BINTANG_BONUS*100).toFixed(0)}%).\n\nGaia Spores, biomass, generators & upgrades RESET. Stars & Singularities stay.`)) return;
+  if (!confirm(`Forge a new Galaxy?\n\nGain ${gain} ⭐ Stars → permanent bonus +${fmt(((1+BIN_GB*Math.pow(state.bintang+gain,BIN_GP))-1)*100)}% total.\n\nGaia Spores, biomass, generators & upgrades RESET. Stars & Singularities stay.`)) return;
   state.bintang += gain;
   state.galaxyCount++;
   state.gaiaSpores = 0;
@@ -671,7 +671,7 @@ function doGalaxy(){
 function doUniverse(){
   const gain = potentialSing();
   if (gain < 1) return;
-  if (!confirm(`Create a new Universe?\n\nGain ${gain} 🌀 Singularities (STRONGEST permanent bonus +${(gain*SING_BONUS*100).toFixed(0)}%).\n\nEVERYTHING resets except Singularities & achievements.`)) return;
+  if (!confirm(`Create a new Universe?\n\nGain ${gain} 🌀 Singularities → STRONGEST permanent bonus +${fmt(((1+SING_GB*Math.pow(state.singularitas+gain,SING_GP))-1)*100)}% total.\n\nEVERYTHING resets except Singularities & achievements.`)) return;
   state.singularitas += gain;
   state.universeCount++;
   state.bintang = 0;
@@ -920,7 +920,7 @@ function renderPrestige(shop){
   // Layer 1 — Planet
   shop.appendChild(prestigeCard({
     icon:'🌟', color:'#b98bff', title:'Planet', amount:state.gaiaSpores,
-    bonusPct:(state.gaiaSpores*GAIA_BONUS*100).toFixed(0), gain:potentialGaia(), gainIcon:'🌟',
+    bonusPct:fmt((gaiaMult()-1)*100), gain:potentialGaia(), gainIcon:'🌟',
     reqLabel:'Next spore when run reaches', reqVal:nextSporeReq(), reqUnit:'🌿',
     progLabel:'This run', progVal:state.runEarned,
     btnLabel:'Rebirth Planet', onBuy:doPrestige, count:state.prestigeCount, countLabel:'Planets'
@@ -930,7 +930,7 @@ function renderPrestige(shop){
   if(state.galaxyUnlocked || state.bintang>0){
     shop.appendChild(prestigeCard({
       icon:'⭐', color:'#ffd866', title:'Galaxy', amount:state.bintang,
-      bonusPct:(state.bintang*BINTANG_BONUS*100).toFixed(0), gain:potentialBintang(), gainIcon:'⭐',
+      bonusPct:fmt((bintangMult()-1)*100), gain:potentialBintang(), gainIcon:'⭐',
       reqLabel:'Next star when Gaia reaches', reqVal:nextBintangReq(), reqUnit:'🌟',
       progLabel:'Gaia now', progVal:state.gaiaSpores,
       btnLabel:'Forge Galaxy', onBuy:doGalaxy, count:state.galaxyCount, countLabel:'Galaxies'
@@ -943,7 +943,7 @@ function renderPrestige(shop){
   if(state.universeUnlocked || state.singularitas>0){
     shop.appendChild(prestigeCard({
       icon:'🌀', color:'#a0ffe0', title:'Universe', amount:state.singularitas,
-      bonusPct:(state.singularitas*SING_BONUS*100).toFixed(0), gain:potentialSing(), gainIcon:'🌀',
+      bonusPct:fmt((singMult()-1)*100), gain:potentialSing(), gainIcon:'🌀',
       reqLabel:'Next singularity when Stars reach', reqVal:nextSingReq(), reqUnit:'⭐',
       progLabel:'Stars now', progVal:state.bintang,
       btnLabel:'Create Universe', onBuy:doUniverse, count:state.universeCount, countLabel:'Universes'

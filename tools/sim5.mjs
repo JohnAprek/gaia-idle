@@ -24,13 +24,16 @@ function sim(C, cps, maxDays){
   let t=0; const maxT=maxDays*86400; const M={}; let planets=0,gx=0,un=0; const gU=new Array(NG).fill(null);
 
   const planetMul=()=>Math.pow(C.PLANET_B, planet);
+  const gm=g=>C.GP?1+C.GB*Math.pow(g,C.GP):1+gaia*C.GAIA_B;
+  const bm=b=>C.BP?1+C.BB*Math.pow(b,C.BP):1+bintang*C.BIN_B;
+  const sm=s=>C.SP?1+C.SB*Math.pow(s,C.SP):1+sing*C.SING_B;
   const allMult=()=>{ let m=1; for(let i=0;i<UPS.length;i++) if(UPS[i][1]==='a'&&ups[i]) m*=UPS[i][2];
-    return m*(1+gaia*C.GAIA_B)*(1+bintang*C.BIN_B)*(1+sing*C.SING_B)*planetMul(); };
+    return m*gm(gaia)*bm(bintang)*sm(sing)*planetMul(); };
   const clickM=m=>{ let k=1; for(let i=0;i<UPS.length;i++) if(UPS[i][1]==='c'&&ups[i]) k*=UPS[i][2]; return k*m; };
   const effRate=i=>GENS[i][1]*Math.pow(2,mileCount(owned[i]))*(1+mgr[i]);
   const psBase=()=>{ let s=0; for(let i=0;i<NG;i++) s+=owned[i]*effRate(i); return s; };
   const cost=i=>GENS[i][0]*G**owned[i];
-  const mgrCost=i=>GENS[i][0]*40*Math.pow(7,mgr[i]);
+  const mgrCost=i=>GENS[i][0]*100*Math.pow(10,mgr[i]);
 
   function buyAll(){
     for(let i=0;i<UPS.length;i++) if(!ups[i]&&biomass>=UPS[i][0]){ups[i]=true;biomass-=UPS[i][0];}
@@ -102,4 +105,14 @@ const FINAL={ growth:1.23, GAIA_DIV:4e5, GAIA_B:0.035, GAL_REQ:2000, BIN_DIV:200
   GOALS:[0,1e5,5e7,5e9,5e12,5e16,5e20,5e25,5e31,5e38] };
 console.log('\n========== FINAL PILIHAN ==========');
 report('FINAL (aktif)', FINAL, 1.5, 120);
-report('FINAL (kasual)', FINAL, 0.4, 120);
+
+const FINAL2={ growth:1.23, GAIA_DIV:4e5, GAL_REQ:2000, BIN_DIV:2000, UNI_REQ:2500, SING_DIV:2500,
+  GB:0.8, GP:0.4, BB:1.2, BP:0.5, SB:3, SP:0.5, PLANET_B:1.2,
+  GOALS:[0,1e5,5e7,5e9,5e12,5e16,5e20,5e25,5e31,5e38] };
+console.log('\n========== FINAL2 (bonus diminishing + manager mahal) ==========');
+report('FINAL2 (aktif)', FINAL2, 1.5, 120);
+report('FINAL2 (kasual)', FINAL2, 0.4, 120);
+// contoh besaran bonus rebirth pada beberapa nilai gaia
+const gmv=g=>1+FINAL2.GB*Math.pow(g,FINAL2.GP);
+console.log('\nBonus rebirth (gaia -> mult):');
+[1,5,25,100,1000,1e4,1e5,1e6,1e8].forEach(g=>console.log(`  gaia ${fmt(g).padStart(7)} -> x${gmv(g).toFixed(1)} (${fmt((gmv(g)-1)*100)}%)`));
