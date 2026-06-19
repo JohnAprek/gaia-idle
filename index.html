@@ -291,6 +291,12 @@
     border: 1px solid var(--glass-brd); backdrop-filter: blur(12px); text-align:center; box-shadow:0 8px 24px rgba(0,0,0,0.5); }
   .toast.show { opacity: 1; }
 
+  #dailyBtn { position:fixed; top:12px; right:12px; z-index:40; width:42px; height:42px; border:none;
+    border-radius:50%; background:linear-gradient(135deg,var(--gold),#ff9b3d); color:#3a2400; font-size:20px;
+    cursor:pointer; display:none; box-shadow:0 4px 14px rgba(255,160,60,0.55); animation:dailyPulse 1.6s ease-in-out infinite; }
+  #dailyBtn.show { display:block; }
+  @keyframes dailyPulse { 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.12);} }
+
   /* monetisasi / boost */
   .boost-card { background: rgba(255,255,255,0.05); border:1px solid var(--glass-brd);
     border-radius: 14px; padding: 13px; margin-bottom: 11px; }
@@ -411,6 +417,18 @@
   </div>
 </div>
 
+<div class="modal-bg" id="dailyModal">
+  <div class="modal">
+    <h2>Daily Reward 🎁</h2>
+    <p>Day <b id="dailyStreakNum" style="color:var(--gold)">1</b> streak</p>
+    <div class="big" id="dailyGain">+0 🌿</div>
+    <p id="dailyExtra" style="color:var(--accent);font-size:12px;min-height:14px"></p>
+    <button id="dailyClaim">Claim</button>
+  </div>
+</div>
+
+<button id="dailyBtn" aria-label="Daily reward">🎁</button>
+
 <div class="toast" id="toast"></div>
 
 <!-- AD OVERLAY (simulated) -->
@@ -519,6 +537,7 @@ const ACHIEVEMENTS = [
   { id:'mgr1',     emoji:'👷', name:'First Hire',       desc:'Hire a manager',       check:s=>Object.keys(s.managers||{}).length>=1 },
   { id:'explore1', emoji:'🚀', name:'Explorer',         desc:'Travel to a new planet',check:s=>(s.planetMax||0)>=1 },
   { id:'voyager',  emoji:'🪐', name:'Voyager',          desc:'Discover every planet', check:s=>(s.planetMax||0)>=PLANETS.length-1 },
+  { id:'daily7',   emoji:'📅', name:'Devoted',          desc:'7-day login streak',   check:s=>(s.dailyStreak||0)>=7 },
 ];
 
 const COST_GROWTH = 1.23;        // steeper climb (balancing v2)
@@ -545,7 +564,7 @@ let state = {
   bintang: 0, galaxyCount: 0, galaxyUnlocked: false,
   singularitas: 0, universeCount: 0, universeUnlocked: false,
   planetIndex: 0, planetMax: 0, pg: {},
-  clicks: 0, claimedOffline: false,
+  clicks: 0, claimedOffline: false, dailyLast: '', dailyStreak: 0,
   soundOn: true, musicOn: true, lastSave: Date.now(),
   boostUntil: 0, adsRemoved: false, adCooldownUntil: 0, goldenCaught: 0,
 };
@@ -736,6 +755,7 @@ function updateStats(){
   if(!state.universeUnlocked && state.bintang>=UNI_REQ){ state.universeUnlocked=true; toast('🌀 UNIVERSE layer unlocked! Check the 🌟 tab'); sfx('ach'); }
   const pd=$('prestigeDot'); if(pd) pd.style.display = (potentialGaia()>=1||potentialBintang()>=1||potentialSing()>=1)?'block':'none';
   const pld=$('planetDot'); if(pld) pld.style.display = canTravel()?'block':'none';
+  const db=$('dailyBtn'); if(db) db.classList.toggle('show', dailyAvailable());
   const stage = currentStage();
   const pl = PLANETS[state.planetIndex] || PLANETS[0];
   $('stageName').textContent = `${pl.emoji} ${pl.name} · ${stage.name}`;
@@ -1329,6 +1349,31 @@ function applyOffline(){
   $('offlineModal').classList.add('show');
 }
 $('offlineOk').onclick=()=>$('offlineModal').classList.remove('show');
+
+// ---------- DAILY REWARD (streak) ----------
+function dayKey(off){ const d=new Date(Date.now()+(off||0)); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function dailyAvailable(){ return state.dailyLast !== dayKey(0); }
+function dailyStreakNext(){ return (state.dailyLast===dayKey(-86400000)) ? (state.dailyStreak||0)+1 : 1; }
+function dailyReward(streak){ return Math.max(150, perSec()*3600) * (1 + 0.25*(streak-1)); } // ~1h production, +25%/day
+function openDaily(){
+  if(!dailyAvailable()) return;
+  const s=dailyStreakNext();
+  $('dailyStreakNum').textContent=s;
+  $('dailyGain').textContent='+'+fmt(dailyReward(s))+' 🌿';
+  $('dailyExtra').textContent = s%7===0 ? '🔥 Bonus: x2 production for 4 hours!' : '';
+  $('dailyModal').classList.add('show');
+}
+function claimDaily(){
+  if(!dailyAvailable()){ $('dailyModal').classList.remove('show'); return; }
+  const s=dailyStreakNext(); state.dailyStreak=s; state.dailyLast=dayKey(0);
+  const amt=dailyReward(s); addBiomass(amt);
+  if(s%7===0) state.boostUntil=Math.max(state.boostUntil,Date.now())+4*3600*1000;
+  sfx('prestige'); screenFlash('#ffd86baa'); burstParticles('🎁',14);
+  toast(`🎁 Day ${s}: +${fmt(amt)} 🌿${s%7===0?' + x2 boost!':''}`);
+  $('dailyModal').classList.remove('show'); updateStats(); save(true);
+}
+$('dailyClaim').onclick=claimDaily;
+$('dailyBtn').onclick=openDaily;
 $('saveBtn').onclick=()=>save(false);
 $('resetBtn').onclick=()=>{ if(confirm('Reset ALL progress including Gaia Spores? This cannot be undone.')){ localStorage.removeItem(SAVE_KEY); location.reload(); } };
 $('soundBtn').onclick=()=>{ state.soundOn=!state.soundOn; initAudio(); $('soundBtn').textContent=state.soundOn?'🔊 Sound':'🔇 Muted'; if(state.soundOn) sfx('buy'); };
@@ -1607,6 +1652,7 @@ scheduleMeteors();
 scheduleSatellite();
 scheduleAmbient();
 requestAnimationFrame(orbFrame);
+setTimeout(()=>{ if(dailyAvailable() && !$('offlineModal').classList.contains('show')) openDaily(); }, 800);
 setTimeout(spawnMeteor, 1500);
 setTimeout(spawnSatellite, 4000);
 </script>

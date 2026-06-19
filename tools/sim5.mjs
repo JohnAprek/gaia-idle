@@ -46,22 +46,23 @@ function sim(C, cps, maxDays){
       const tc=base*(G**q-1)/(G-1); if(tc>biomass){biomass-=base;owned[best]++;} else {biomass-=tc;owned[best]+=q;}
       if(gU[best]===null) gU[best]=t; }
   }
+  let othersProd=0;                                   // frozen production from other developed planets (shared biomass)
   while(t<maxT){
-    const m=allMult(); const inc=(psBase()*m+cps*clickM(m))*Math.max(1,Math.min(3600,t/1500));
-    const dt=Math.max(1,Math.min(3600,t/1500)); biomass+=psBase()*m*dt+cps*clickM(m)*dt; run+=psBase()*m*dt; lifetime+=psBase()*m*dt; t+=dt;
+    const m=allMult(); const prod=psBase()+othersProd;
+    const dt=Math.max(1,Math.min(3600,t/1500)); biomass+=prod*m*dt+cps*clickM(m)*dt; run+=prod*m*dt; lifetime+=prod*m*dt; t+=dt;
     if(run>bestRun)bestRun=run;
     buyAll();
     // planet journey (auto-travel saat lifetime cukup)
-    while(planet+1<C.GOALS.length && lifetime>=C.GOALS[planet+1]){ planet++; if(!M['p'+planet])M['p'+planet]=t; }
+    while(planet+1<C.GOALS.length && lifetime>=C.GOALS[planet+1]){ othersProd+=psBase(); owned.fill(0); mgr.fill(0); planet++; if(!M['p'+planet])M['p'+planet]=t; }
     if(!M.allGen && owned.every(o=>o>0)) M.allGen=t;
     if(!M.galU && gaia>=C.GAL_REQ) M.galU=t;
     if(!M.uniU && bintang>=C.UNI_REQ) M.uniU=t;
     if(bintang>=C.UNI_REQ){ const g=Math.floor(Math.sqrt(bintang/C.SING_DIV))-sing;
-      if(g>=Math.max(1,Math.ceil(sing*0.5))){ sing+=g;un++; if(!M.uni1)M.uni1=t; bintang=0;gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0); continue; } }
+      if(g>=Math.max(1,Math.ceil(sing*0.5))){ sing+=g;un++; if(!M.uni1)M.uni1=t; bintang=0;gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0);othersProd=0; continue; } }
     if(gaia>=C.BIN_DIV){ const g=Math.floor(Math.sqrt(gaia/C.BIN_DIV))-bintang;
-      if(g>=Math.max(1,Math.ceil(bintang*0.5))){ bintang+=g;gx++; if(!M.gal1)M.gal1=t; gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0); continue; } }
+      if(g>=Math.max(1,Math.ceil(bintang*0.5))){ bintang+=g;gx++; if(!M.gal1)M.gal1=t; gaia=0;bestRun=0;run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0);othersProd=0; continue; } }
     { const g=Math.floor(Math.sqrt(bestRun/C.GAIA_DIV))-gaia;
-      if(g>=Math.max(1,Math.ceil(gaia*0.5))){ gaia+=g;planets++; if(!M.planet1)M.planet1=t; run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0); continue; } }
+      if(g>=Math.max(1,Math.ceil(gaia*0.5))){ gaia+=g;planets++; if(!M.planet1)M.planet1=t; run=0;biomass=0;owned.fill(0);ups.fill(false);mgr.fill(0);othersProd=0; continue; } }
   }
   return {t,gaia,bintang,sing,planet,planets,gx,un,M,gU,lifetime};
 }
