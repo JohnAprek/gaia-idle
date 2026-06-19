@@ -95,11 +95,13 @@
     opacity:0.32; animation: auraPulse 5s ease-in-out infinite; }
   @keyframes auraPulse { 0%,100%{ transform:scale(1); opacity:0.24; } 50%{ transform:scale(1.16); opacity:0.42; } }
 
-  /* orbiting moon */
-  .orbit { position:absolute; top:50%; left:50%; width:252px; height:252px; margin:-126px 0 0 -126px;
-    z-index:0; pointer-events:none; animation: orbitSpin 16s linear infinite; }
-  .moon { position:absolute; top:-4px; left:50%; margin-left:-9px; font-size:18px; filter:drop-shadow(0 0 5px rgba(180,210,255,0.8)); }
-  @keyframes orbitSpin { to { transform: rotate(360deg); } }
+  /* orbiting bodies (space-tier generators) — positioned in JS along tilted ellipses */
+  .orbiters { position:absolute; inset:0; pointer-events:none; }
+  .orbiter { position:absolute; left:0; top:0; will-change:transform,opacity; }
+  .orb-emoji { filter:drop-shadow(0 0 4px rgba(180,210,255,0.65)); }
+  .orb-dot { border-radius:50%; }
+  .orb-ring { position:absolute; left:50%; top:50%; border:2px solid rgba(200,220,255,0.5);
+    border-radius:50%; box-shadow:0 0 14px rgba(150,180,255,0.35); pointer-events:none; }
 
   /* tap ripple */
   .ripple { position:absolute; width:160px; height:160px; border:2px solid var(--accent);
@@ -110,7 +112,7 @@
     background:radial-gradient(circle, rgba(255,255,255,0.55), transparent 65%); opacity:0; }
   .planet {
     width: min(180px, 62vw, 40vh); height: min(180px, 62vw, 40vh); aspect-ratio: 1 / 1;
-    border-radius: 50%; cursor: pointer; position: relative;
+    border-radius: 50%; cursor: pointer; position: relative; z-index: 2;
     flex-shrink: 0; overflow: hidden;
     background: radial-gradient(circle at 35% 30%, #6b7088, #2e3142 70%, #1a1c28);
     box-shadow: 0 0 0 0 rgba(92,224,138,0);
@@ -361,7 +363,7 @@
 
   <div class="planet-area">
     <div class="aura"></div>
-    <div class="orbit"><span class="moon">🌑</span></div>
+    <div class="orbiters" id="orbiters"></div>
     <button class="planet" id="planet"><canvas class="pcanvas" id="planetCanvas" width="128" height="128"></canvas></button>
     <div class="planet-hint">Tap the planet to grow life</div>
 
@@ -718,6 +720,7 @@ function updateStats(){
   lastStageMin = stage.min;
   updateBoostUI();
   updateFlora();
+  updateOrbiters();
   // tab achievement news
   checkAchievements();
 }
@@ -1428,6 +1431,46 @@ function initPlanet2D(){ const cv=document.getElementById('planetCanvas'); if(!c
   if(!document.hidden) draw(); setInterval(()=>{ if(!document.hidden) draw(); },600);
 }
 
+// ====== ORBITING BODIES (space-tier generators orbit the planet) ======
+const ORB_DEFS=[
+  {id:'orbit',    type:'emoji', icon:'🛰️', rf:1.30, ry:0.42, sp:0.95, count:1, sz:14},
+  {id:'bulan',    type:'emoji', icon:'🌙', rf:1.64, ry:0.40, sp:0.55, count:1, sz:20},
+  {id:'mtbuatan', type:'emoji', icon:'🔆', rf:1.92, ry:0.36, sp:0.38, count:1, sz:18},
+  {id:'warp',     type:'emoji', icon:'🌀', rf:1.46, ry:0.55, sp:0.78, count:1, sz:16},
+  {id:'dyson',    type:'dot',   color:'#bfe0ff', rf:1.52, ry:0.50, sp:0.62, count:8,  sz:6},
+  {id:'asteroid', type:'dot',   color:'#caa37a', rf:1.80, ry:0.40, sp:0.30, count:14, sz:4},
+];
+let orbInst=[], orbRing=null, orbSig='', orbT=0;
+function orbSignature(){ let s=''; for(const d of ORB_DEFS) if((state.gens[d.id]||0)>0) s+=d.id+','; if((state.gens.cincin||0)>0) s+='ring'; return s; }
+function updateOrbiters(){
+  const sig=orbSignature(); if(sig===orbSig) return; orbSig=sig;
+  const cont=$('orbiters'); if(!cont) return; cont.innerHTML=''; orbInst=[]; orbRing=null;
+  ORB_DEFS.forEach(d=>{ if((state.gens[d.id]||0)<=0) return;
+    for(let k=0;k<d.count;k++){ const el=document.createElement('div'); el.className='orbiter';
+      if(d.type==='emoji'){ el.classList.add('orb-emoji'); el.textContent=d.icon; el.style.fontSize=d.sz+'px'; }
+      else { el.classList.add('orb-dot'); el.style.width=d.sz+'px'; el.style.height=d.sz+'px'; el.style.background=d.color; el.style.boxShadow='0 0 4px '+d.color; }
+      cont.appendChild(el);
+      orbInst.push({el, rf:d.rf, ry:d.ry, sp:d.sp, ph:(k/d.count)*Math.PI*2 + d.rf}); }
+  });
+  if((state.gens.cincin||0)>0){ orbRing=document.createElement('div'); orbRing.className='orb-ring'; cont.appendChild(orbRing); }
+}
+function orbFrame(){
+  if(!document.hidden && (orbInst.length || orbRing)){
+    const planet=$('planet'), area=document.querySelector('.planet-area');
+    if(planet && area){ const pr=planet.getBoundingClientRect(), ar=area.getBoundingClientRect();
+      const cx=pr.left-ar.left+pr.width/2, cy=pr.top-ar.top+pr.height/2, R=pr.width/2;
+      orbT+=0.016;
+      for(const o of orbInst){ const a=orbT*o.sp+o.ph, f=Math.sin(a);
+        const x=cx+Math.cos(a)*R*o.rf, y=cy+f*R*o.rf*o.ry, sc=1+0.25*f;
+        o.el.style.transform=`translate(${x}px,${y}px) translate(-50%,-50%) scale(${sc})`;
+        o.el.style.opacity=0.5+0.5*((f+1)/2); o.el.style.zIndex = f>0?3:1; }
+      if(orbRing){ orbRing.style.width=(R*3.4)+'px'; orbRing.style.height=(R*3.4*0.4)+'px';
+        orbRing.style.transform='translate(-50%,-50%) rotate(-12deg)'; orbRing.style.zIndex=1; }
+    }
+  }
+  requestAnimationFrame(orbFrame);
+}
+
 // ---------- INIT ----------
 const hadSave=load();
 $('soundBtn').textContent = state.soundOn?'🔊 Sound':'🔇 Muted';
@@ -1441,6 +1484,7 @@ scheduleGolden();
 scheduleMeteors();
 scheduleSatellite();
 scheduleAmbient();
+requestAnimationFrame(orbFrame);
 setTimeout(spawnMeteor, 1500);
 setTimeout(spawnSatellite, 4000);
 </script>
