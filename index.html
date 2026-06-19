@@ -191,9 +191,11 @@
   @keyframes burst { 0%{opacity:1; transform: translate(0,0) scale(0.4);} 100%{opacity:0;} }
 
   .tabs { display: flex; gap: 6px; }
-  .tab { flex: 1; padding: 9px 4px 8px; text-align: center; border-radius: 14px; font-size: 19px;
+  .tab { flex: 1; padding: 10px 4px 9px; text-align: center; border-radius: 14px; font-size: 24px;
     background: rgba(255,255,255,0.04); color: var(--muted); cursor: pointer; position: relative;
-    border: 1px solid transparent; transition: transform .12s, background .15s, box-shadow .15s; }
+    border: 1px solid transparent; text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 0 1px rgba(0,0,0,0.5);
+    transition: transform .12s, background .15s, box-shadow .15s; }
+  .tab.active { filter: drop-shadow(0 0 6px rgba(93,255,160,0.55)); }
   .tab:active { transform: scale(0.92); }
   .tab.active { color: var(--accent); background: rgba(93,255,160,0.12); border-color: rgba(93,255,160,0.35);
     box-shadow: 0 0 16px rgba(93,255,160,0.22), inset 0 1px 0 rgba(255,255,255,0.1); transform: translateY(-2px); }
@@ -1371,7 +1373,7 @@ function initPlanetGfx(){
   cv.width=cv.height=320;
   const VS='attribute vec2 aPos;varying vec2 vUv;void main(){vUv=aPos;gl_Position=vec4(aPos,0.0,1.0);}';
   const FS=[
-   'precision highp float;varying vec2 vUv;uniform float uTime,uSea;',
+   'precision highp float;varying vec2 vUv;uniform float uTime,uSea,uVeg,uLights;',
    'uniform vec3 uOceanD,uOcean,uLand,uMtn,uIce,uAtmo;',
    'float hash(vec3 p){p=fract(p*0.3183099+0.1);p*=17.0;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}',
    'float vn(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);',
@@ -1383,10 +1385,12 @@ function initPlanetGfx(){
    'vec3 sp=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon));float h=fbm(sp*2.2+10.0);vec3 col;',
    'if(h<uSea){col=mix(uOceanD,uOcean,h/uSea);}else{float t=(h-uSea)/(1.0-uSea);col=mix(uLand,uMtn,smoothstep(0.55,1.0,t));if(t<0.15)col*=0.82+t/0.15*0.18;}',
    'float al=abs(lat);col=mix(col,uIce,smoothstep(1.08,1.5,al));',
+   'float land=step(uSea,h);col+=vec3(-0.04,0.17,-0.02)*uVeg*land;',
    'float clon=atan(n.x,n.z)+uTime*1.4;vec3 csp=vec3(cos(lat)*cos(clon),sin(lat),cos(lat)*sin(clon));',
-   'float cl=smoothstep(0.55,0.78,fbm(csp*3.0+50.0));',
+   'float cl=smoothstep(0.55-uVeg*0.12,0.78,fbm(csp*3.0+50.0));',
    'vec3 L=normalize(vec3(-0.5,-0.55,0.67));float df=max(dot(n,L),0.0);float sh=0.22+0.95*df;',
    'col=mix(col,vec3(1.0),cl*0.55*clamp(df+0.15,0.0,1.0));col*=sh;',
+   'float night=1.0-smoothstep(-0.05,0.25,df);float city=smoothstep(0.66,0.72,fbm(sp*16.0+3.0))*land*night*uLights;col+=vec3(1.0,0.82,0.45)*city;',
    'float rim=pow(1.0-z,3.0);col+=uAtmo*rim*0.9;float e=smoothstep(1.0,0.975,r2);gl_FragColor=vec4(col,e);}'
   ].join('\n');
   function sh(t,src){const s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);
@@ -1399,13 +1403,18 @@ function initPlanetGfx(){
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
   const ap=gl.getAttribLocation(pr,'aPos');gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,2,gl.FLOAT,false,0,0);
   const U=n=>gl.getUniformLocation(pr,n);
-  const uT=U('uTime'),uS=U('uSea'),uOD=U('uOceanD'),uO=U('uOcean'),uL=U('uLand'),uM=U('uMtn'),uI=U('uIce'),uA=U('uAtmo');
+  const uT=U('uTime'),uS=U('uSea'),uOD=U('uOceanD'),uO=U('uOcean'),uL=U('uLand'),uM=U('uMtn'),uI=U('uIce'),uA=U('uAtmo'),uVg=U('uVeg'),uLt=U('uLights');
+  const LIFE_IDX=['spora','lumut','semak','pohon','hutan','satwa'];
+  function lifeAmt(){ let n=0; for(const id of LIFE_IDX) n+=state.gens[id]||0; return n; }
+  function civAmt(){ return (state.gens.koloni||0)+(state.gens.kota||0); }
   gl.viewport(0,0,320,320);gl.clearColor(0,0,0,0);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   const t0=performance.now();
   window.__planetGL=gl; // for debugging
   (function frame(){ if(!document.hidden){ const p=PAL[state.planetIndex]||PAL[0];
     gl.uniform1f(uT,(performance.now()-t0)/1000*0.25); gl.uniform1f(uS, state.planetIndex===3?0.52:0.46);
     gl.uniform3fv(uOD,p.od);gl.uniform3fv(uO,p.o);gl.uniform3fv(uL,p.l);gl.uniform3fv(uM,p.m);gl.uniform3fv(uI,p.i);gl.uniform3fv(uA,p.a);
+    gl.uniform1f(uVg, Math.min(1, Math.log10(lifeAmt()+1)/2.8));
+    gl.uniform1f(uLt, Math.min(1, Math.log10(civAmt()+1)/2.2));
     gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6); }
     requestAnimationFrame(frame); })();
 }
